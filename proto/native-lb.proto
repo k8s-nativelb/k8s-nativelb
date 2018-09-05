@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package proto;
+
+import "google/protobuf/timestamp.proto";
+
+service NativeLoadBalancerAgent {
+    rpc Connect(Agent) returns (stream Command) {}
+    rpc UpdateAgentStatus(AgentStatus) returns (Result) {}
+    rpc UpdateServerStats(ServerStats) returns (Result) {}
+}
+
+message Command {
+    string Command = 1;
+    repeated Server Servers = 2;
+}
+
+message Agent {
+    string HostName = 1;
+    string IPAddress = 2;
+    string Cluster = 3;
+}
+
+message AgentStatus {
+    string Name = 1;
+    int32 Pid = 2;
+    string StartTime = 3;
+    string Time = 4;
+    google.protobuf.Timestamp Uptime = 5;
+    string Version = 6;
+}
+
+message ServerStats {
+    string Name = 1;
+    int32 ActiveConnections = 2;
+    int32 RxTotal = 3;
+    int32 TxTotal = 4;
+    int32 RxSecond  = 5;
+    int32 TxSecond  = 6;
+    repeated Backend Backends = 7;
+}
+
+message Server {
+    string Bind = 1;
+    string Protocol = 2;
+    UDP UDP = 3;
+    string Balance = 4;
+    string MaxConnections = 5;
+    string ClientIdleTimeout = 6;
+    string BackendIdleTimeout = 7;
+    string BackendConnectionTimeout = 8;
+    Discovery Discovery = 9;
+    HealthCheck HealthCheck = 10;
+}
+
+message Discovery {
+    string Kind = 1;
+    repeated BackendSpec BackendSpec = 2;
+}
+
+message HealthCheck {
+    int32 Fails = 1;
+    int32 Passes = 2;
+    string Interval = 3;
+    string Timeout = 4;
+    string Kind = 5;
+    string PingTimeoutDuration = 6;
+}
+
+message UDP {
+    int32 MaxRequests = 1;
+    int32 MaxResponses = 2;
+}
+
+message Backend {
+    BackendSpec BackendSpec = 1;
+    BackendStatus BackendStatus = 2;
+}
+
+message BackendSpec {
+    string Host = 1;
+    string Port = 2;
+    int32 Priority = 3;
+    int32 Weight = 4;
+}
+
+message  BackendStatus {
+    bool Live = 1;
+    int32 TotalConnections = 2;
+    int32 ActiveConnections = 3;
+    int32 RefusedConnections = 4;
+    int32 Rx = 5;
+    int32 Tx = 6;
+    int32 RxSecond = 7;
+    int32 TxSecond =8;
+}
+
+message Result {}

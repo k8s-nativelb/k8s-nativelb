@@ -1,0 +1,3 @@
+version: "1"
+domain: k8s.native-lb
+repo: github.com/k8s-nativelb/k8s-nativelb

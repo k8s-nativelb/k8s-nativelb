@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-loadbalancer-controller
+  namespace: external-loadbalancer
+  labels:
+    control-plane: external-loadbalancer-controller
+    controller-tools.k8s.io: "1.0"
+spec:
+  selector:
+    matchLabels:
+      control-plane: external-loadbalancer-controller
+      controller-tools.k8s.io: "1.0"
+  template:
+    metadata:
+      labels:
+        control-plane: external-loadbalancer-controller
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - command:
+        - /root/manager
+        image: quay.io/k8s-external-loadbalancer/controller:latest
+        name: manager
+        resources:
+          limits:
+            cpu: 500m
+            memory: 300Mi
+          requests:
+            cpu: 500m
+            memory: 100Mi
+      terminationGracePeriodSeconds: 10
