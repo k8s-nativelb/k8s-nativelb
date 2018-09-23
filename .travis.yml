@@ -1,0 +1,22 @@
+language: generic
+sudo: required
+dist: trusty
+
+services:
+- docker
+
+env:
+- BUILDER_NAME="external-lb/${TRAVIS_JOB_ID}builder"
+
+install:
+ - git reset --hard
+
+script:
+- make docker-test
+
+deploy:
+- provider: script
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io && make publish
+  skip_cleanup: true
+  on:
+    branch: master
