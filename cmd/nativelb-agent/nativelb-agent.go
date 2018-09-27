@@ -16,6 +16,45 @@ limitations under the License.
 
 package main
 
-func main() {
+import (
+	"os"
+	"fmt"
+	"github.com/k8s-nativelb/pkg/nativelb-agent"
+)
 
+func main() {
+	controllerUrl, isExist := os.LookupEnv("CONTROLLER_URL")
+
+	if !isExist {
+		panic(fmt.Errorf("CONTROLLER_URL environment variable doesn't exist"))
+	}
+
+	clusterName, isExist := os.LookupEnv("CLUSTER_NAME")
+
+	if !isExist {
+		panic(fmt.Errorf("CLUSTER_NAME environment variable doesn't exist"))
+	}
+
+	controlInterface, isExist := os.LookupEnv("CONTROL_INTERFACE")
+
+	if !isExist {
+		panic(fmt.Errorf("CONTROL_INTERFACE environment variable doesn't exist"))
+	}
+
+	dataInterface, isExist := os.LookupEnv("DATA_INTERFACE")
+	if !isExist {
+		dataInterface = controlInterface
+	}
+
+	syncInterface, isExist := os.LookupEnv("SYNC_INTERFACE")
+	if !isExist {
+		syncInterface= controlInterface
+	}
+
+	agent, err := nativelb_agent.NewNativeAgent(controllerUrl,clusterName,controlInterface,dataInterface,syncInterface)
+	if err != nil {
+		panic(err)
+	}
+
+	agent.StartAgent()
 }

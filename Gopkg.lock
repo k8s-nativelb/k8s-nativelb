@@ -82,7 +82,7 @@
   branch = "master"
   name = "github.com/golang/groupcache"
   packages = ["lru"]
-  revision = "24b0969c4cb722950103eed87108c8d291a8df00"
+  revision = "6f2cf27854a4a29e3811b0371547be335d411b8b"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -300,6 +300,21 @@
   version = "v1.0.2"
 
 [[projects]]
+  name = "github.com/vishvananda/netlink"
+  packages = [
+    ".",
+    "nl"
+  ]
+  revision = "a2ad57a690f3caf3015351d2d6e1c0b95c349752"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/vishvananda/netns"
+  packages = ["."]
+  revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
@@ -346,7 +361,7 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "2f5d2388922f370f4355f327fcf4cfe9f5583908"
+  revision = "4dfa2610cdf3b287375bbba5b8f2a14d3b01d8de"
 
 [[projects]]
   branch = "master"
@@ -367,7 +382,7 @@
     "unix",
     "windows"
   ]
-  revision = "d47a0f3392421c5624713c9a19fe781f651f8a50"
+  revision = "dad3d9fb7b6e83d0f9ac8f54670f6334c3a287b4"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -416,7 +431,7 @@
     "imports",
     "internal/fastwalk"
   ]
-  revision = "90fa682c2a6e6a37b3a1364ce2fe1d5e41af9d6d"
+  revision = "308f0c7c09fc9a2cba898a7445d92edc31bf2a85"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -439,7 +454,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "c3f76f3b92d1ffa4c58a9ff842a58b8877655e0f"
+  revision = "0e822944c569bf5c9afd034adaa56208bd2906ac"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -542,8 +557,8 @@
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1beta1"
   ]
-  revision = "408db4a50408e2149acbd657bceb2480c13cb0a4"
-  version = "kubernetes-1.11.2"
+  revision = "06dfdaae5c2bd89e1243151ff65b9bf8ee050f28"
+  version = "kubernetes-1.11.1"
 
 [[projects]]
   name = "k8s.io/apimachinery"
@@ -598,6 +613,7 @@
   name = "k8s.io/client-go"
   packages = [
     "discovery",
+    "dynamic",
     "kubernetes",
     "kubernetes/scheme",
     "kubernetes/typed/admissionregistration/v1alpha1",
@@ -662,8 +678,8 @@
     "util/retry",
     "util/workqueue"
   ]
-  revision = "1f13a808da65775f22cbf47862c4e5898d8f4ca1"
-  version = "kubernetes-1.11.2"
+  revision = "59698c7d9724b0f95f9dc9e7f7dfdcc3dfeceb82"
+  version = "kubernetes-1.11.1"
 
 [[projects]]
   branch = "master"
@@ -673,7 +689,7 @@
     "cmd/deepcopy-gen/args",
     "pkg/util"
   ]
-  revision = "aae79feb89bdded3679da91fd8c19b6dfcbdb79a"
+  revision = "731fd61190482fe9e4b67e30ccb8596966f394dd"
 
 [[projects]]
   branch = "master"
@@ -724,10 +740,11 @@
     "pkg/webhook/admission/types",
     "pkg/webhook/types"
   ]
-  revision = "79f06014d49b565e2d980fcd9519b33874ddb8d6"
-  version = "v0.1.3"
+  revision = "53fc44b56078cd095b11bd44cfa0288ee4cf718f"
+  version = "v0.1.4"
 
 [[projects]]
+  branch = "master"
   name = "sigs.k8s.io/controller-tools"
   packages = [
     "cmd/controller-gen",
@@ -738,8 +755,7 @@
     "pkg/internal/codegen/parse",
     "pkg/util"
   ]
-  revision = "bfd3eefb7f22ed714b2acd38730c36992ee6af70"
-  version = "v0.1.5"
+  revision = "38b2f3f497ed6b8ea5d2844ecf00c28ac4b5c2c4"
 
 [[projects]]
   branch = "master"
@@ -753,6 +769,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9a05bf7b9258155d76eadfa3955922ee50b7119010461cceff55c1045da5bd0e"
+  inputs-digest = "4ff18a763c2f4692c4f90fa02610d1fad80a15a10cf9f7863c71b1e77c11a083"
   solver-name = "gps-cdcl"
   solver-version = 1
