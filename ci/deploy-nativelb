@@ -1,0 +1,6 @@
+#!/bin/bash
+
+kubectl apply -f config/crds/
+kubectl apply -f config/samples/cluster_internal_develop.yaml
+
+timeout 2m ci/wait-pods-ok

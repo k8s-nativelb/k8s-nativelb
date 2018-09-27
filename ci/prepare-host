@@ -1,0 +1,103 @@
+#!/bin/bash
+# usage: prepare-host (minikube|oc_cluster|minishift|virtctl|oc) $VERSION
+
+set -e
+
+_cache() {
+  local BIN="$1"
+  shift 1
+  local FETCHCMD="$@"
+
+  local KEY=$(md5sum <<<"$FETCHCMD" | cut -d " " -f1)
+
+  [[ ! -d cache ]] && mkdir cache
+
+  if [[ ! -e "cache/$KEY" ]];
+  then
+    # We expect the FETCHCMD to provide $BIN in $PWD
+    eval "$FETCHCMD"
+    mv "$BIN" "cache/$KEY"
+  fi
+
+  ln -fv "cache/$KEY" "$BIN"
+}
+
+_install_bin() {
+  local BIN=$1
+  sudo install -m a+x $BIN /usr/local/bin
+}
+
+_oc() {
+  local VER=$1
+
+  _cache oc "curl -L \
+    https://github.com/openshift/origin/releases/download/v$VER/openshift-origin-client-tools-v3.10.0-dd10d17-linux-64bit.tar.gz \
+    | tar xz --strip-components=1 openshift-origin-client-tools-v3.10.0-dd10d17-linux-64bit/oc"
+
+  _install_bin oc
+
+  # For compatibility
+  if [[ ! -f /usr/local/bin/kubectl ]];
+  then
+    sudo ln -sf /usr/local/bin/oc /usr/local/bin/kubectl
+  fi
+}
+
+_minikube() {
+  local CVER=$1
+
+  _cache kubectl "curl -Lo kubectl \
+    https://storage.googleapis.com/kubernetes-release/release/v$CVER/bin/linux/amd64/kubectl"
+
+  _install_bin kubectl
+
+  _cache crictl "curl -L \
+    https://github.com/kubernetes-incubator/cri-tools/releases/download/v1.11.1/crictl-v1.11.1-linux-amd64.tar.gz \
+    | tar xz crictl"
+
+  _install_bin crictl
+
+  _cache minikube "curl -Lo minikube \
+    https://storage.googleapis.com/minikube/releases/v0.28.2/minikube-linux-amd64"
+
+  _install_bin minikube
+}
+
+_oc_cluster() {
+  local CVER=$1
+
+  sudo sed -i 's%DOCKER_OPTS=\"%DOCKER_OPTS=\"--insecure-registry 172.30.0.0/16 %' /etc/default/docker
+  sudo systemctl restart docker
+
+  _oc $CVER
+}
+
+_minishift() {
+  local CVER=$1
+
+  _cache minishift "curl -L \
+    https://github.com/minishift/minishift/releases/download/v1.23.0/minishift-1.23.0-linux-amd64.tgz \
+    | tar xz --strip-components=1 minishift-1.23.0-linux-amd64/minishift"
+
+  _install_bin minishift
+
+  # User CI key
+  USSH=$HOME/.ssh
+  mkdir -p $USSH
+  ssh-keygen -t rsa -N '' -f $USSH/ci_id_rsa
+  cat >> $USSH/config <<EOF
+Host localhost
+  StrictHostKeyChecking no
+EOF
+
+  # Allow User CI key to login as root
+  sudo bash <<EOF
+mkdir -p /root/.ssh
+cat $USSH/ci_id_rsa.pub >> /root/.ssh/authorized_keys
+chmod g-rw,o-rw /root/.ssh /root/.ssh/* $USSH/* $USSH
+EOF
+
+  _oc $CVER
+}
+
+_$1 $2

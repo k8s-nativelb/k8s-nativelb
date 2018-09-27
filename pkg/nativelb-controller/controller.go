@@ -46,6 +46,8 @@ type NativeLBManager struct {
 	serverController *server_controller.ServerController
 	farmController *farm_controller.FarmController
 	clusterController *cluster_controller.ClusterController
+
+	stopChan <- chan struct{}
 }
 
 func NewNativeLBManager() (*NativeLBManager) {
@@ -69,12 +71,13 @@ func NewNativeLBManager() (*NativeLBManager) {
 	log.Log.Infof("Registering Components.")
 
 	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+	schema := mgr.GetScheme()
+	if err := apis.AddToScheme(schema); err != nil {
 		panic(err)
 	}
 
-
-	nativeLBGrpcServer := server.NewNativeLBGrpcServer(mgr.GetClient())
+	stopChan := signals.SetupSignalHandler()
+	nativeLBGrpcServer := server.NewNativeLBGrpcServer(mgr.GetClient(),stopChan)
 	nativeLBManager := &NativeLBManager{mgr,
 	kubeClient,
 	nativeLBGrpcServer,
@@ -82,7 +85,7 @@ func NewNativeLBManager() (*NativeLBManager) {
 	nil,
 	nil,
 	nil,
-	nil}
+	nil,stopChan}
 
 	err = nativeLBManager.addToManager()
 	if err != nil {
@@ -93,16 +96,15 @@ func NewNativeLBManager() (*NativeLBManager) {
 }
 
 func (n *NativeLBManager)StartManager() {
-	go n.nativeLBGrpcServer.StartServer()
-
 	log.Log.Infof("Starting Native LB Manager")
-	n.GetCache().WaitForCacheSync(signals.SetupSignalHandler())
+
+	go n.nativeLBGrpcServer.StartServer()
 
 	//Start channel listener on controllers
 	go n.agentController.WaitForStatusUpdate()
 	go n.serverController.WaitForStatusUpdate()
 
-	n.Start(signals.SetupSignalHandler())
+	n.Start(n.stopChan)
 }
 
 
