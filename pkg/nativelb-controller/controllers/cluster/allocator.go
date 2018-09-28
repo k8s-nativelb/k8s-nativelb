@@ -10,11 +10,11 @@ import (
 )
 
 type Allocator struct {
-	mutex         *sync.Mutex
+	mutex         sync.Mutex
 	ips           []string
 }
 
-func NewAllocator(clusterObject v1.Cluster) (*Allocator, error) {
+func NewAllocator(clusterObject *v1.Cluster) (*Allocator, error) {
 	ips, err := getsHosts(clusterObject.Spec.IpRange)
 	if err != nil {
 		return nil, err
@@ -25,20 +25,32 @@ func NewAllocator(clusterObject v1.Cluster) (*Allocator, error) {
 
 	log.Log.Infof("number of free ip addresses %d", len(ips)-len(clusterObject.Status.AllocatedIps))
 
-	return &Allocator{ips: ips}, nil
+	return &Allocator{ips: ips,mutex:sync.Mutex{}}, nil
 }
 
 func (a *Allocator) Allocate(farm *v1.Farm,clusterObject *v1.Cluster) (string, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
+	ipAddr, isExist := a.AllocatedFarm(farm,clusterObject)
+	if isExist {
+		return ipAddr, nil
+	}
+
 	ipAddr, err := a.findFreeIpAddr(clusterObject)
 	if err != nil {
 		return "", err
 	}
 
-	err = a.updateAllocatedIps(ipAddr, farm, clusterObject)
-	return ipAddr, err
+	farm.Status.IpAdress = ipAddr
+	if clusterObject.Status.AllocatedIps == nil {
+		clusterObject.Status.AllocatedIps = make(map[string]string)
+	}
+
+	// Add to allocatedIps
+	clusterObject.Status.AllocatedIps[ipAddr] = farm.Name
+
+	return ipAddr, nil
 }
 
 func (a *Allocator) Release(ipAddr string,clusterObject *v1.Cluster) {
@@ -55,25 +67,6 @@ func (a *Allocator) Release(ipAddr string,clusterObject *v1.Cluster) {
 	delete(clusterObject.Status.AllocatedIps, ipAddr)
 }
 
-func (a *Allocator) updateAllocatedIps(ipAddr string, farm *v1.Farm,clusterObject *v1.Cluster) error {
-	farm.Status.IpAdress = ipAddr
-	servers := farm.Spec.Servers
-	if clusterObject.Status.AllocatedIps == nil {
-		clusterObject.Status.AllocatedIps = make(map[string]*v1.Farm)
-	}
-
-	// Update server bindings
-	for idx := range servers {
-		servers[idx].Spec.Bind = fmt.Sprintf("%s:%s", ipAddr, servers[idx].Spec.Bind)
-	}
-
-	// Add to allocatedIps
-	clusterObject.Status.AllocatedIps[ipAddr] = farm
-
-	return nil
-}
-
-
 func (a *Allocator) findFreeIpAddr(clusterObject *v1.Cluster) (string, error) {
 	if clusterObject.Status.AllocatedIps == nil {
 		return a.ips[0], nil
@@ -86,6 +79,16 @@ func (a *Allocator) findFreeIpAddr(clusterObject *v1.Cluster) (string, error) {
 	}
 
 	return "", fmt.Errorf("fail to find any free address")
+}
+
+func (a *Allocator) AllocatedFarm(farm *v1.Farm,clusterObject *v1.Cluster) (string,bool) {
+	for allocatedIp := range clusterObject.Status.AllocatedIps {
+		if clusterObject.Status.AllocatedIps[allocatedIp] == farm.Name {
+			return allocatedIp , true
+		}
+	}
+
+	return "", false
 }
 
 func getsHosts(cidr string) ([]string, error) {

@@ -51,7 +51,7 @@ type ServerStatus struct {
 // +k8s:openapi-gen=true
 type Discovery struct {
 	Kind        string        `json:"kind"`
-	Backends []Backend `json:"backend"`
+	Backends []BackendSpec `json:"backend"`
 }
 
 // +k8s:openapi-gen=true

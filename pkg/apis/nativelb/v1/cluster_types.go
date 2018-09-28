@@ -35,7 +35,7 @@ type ClusterSpec struct {
 // +k8s:openapi-gen=true
 type ClusterStatus struct {
 	Agents       map[string]Agent `json:"agents,omitempty"`
-	AllocatedIps map[string]*Farm `json:"allocatedIps,omitempty"`
+	AllocatedIps map[string]string `json:"allocatedIps,omitempty"`
 	ConnectionStatus string `json:"connectionStatus"`
 	LastUpdate metav1.Time `json:"lastUpdate"`
 }

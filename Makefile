@@ -53,6 +53,9 @@ vet:
 generate:
 	go generate ./pkg/... ./cmd/...
 
+print:
+	./hack/travis.sh
+
 # Test Inside a docker
 #docker-test:
 #	./build-test.sh

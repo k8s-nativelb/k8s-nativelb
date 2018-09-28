@@ -16,12 +16,14 @@ limitations under the License.
 package nativelb_controller
 
 import (
+	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/apis"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/server"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
 
 	"k8s.io/client-go/kubernetes"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -96,6 +98,13 @@ func NewNativeLBManager() (*NativeLBManager) {
 }
 
 func (n *NativeLBManager)StartManager() {
+	log.Log.Infof("Clear nativeLB Labels from all the services")
+	err := n.ClearLabels()
+	if err != nil {
+		log.Log.Errorf("Fail to clean labels from all the services on the cluster error: %v",err)
+		panic(err)
+	}
+
 	log.Log.Infof("Starting Native LB Manager")
 
 	go n.nativeLBGrpcServer.StartServer()
@@ -164,5 +173,26 @@ func(n *NativeLBManager) addToManager() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (n *NativeLBManager)ClearLabels() (error) {
+	serviceList, err := n.kubeClient.CoreV1().Services("").List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _,serviceObject := range serviceList.Items {
+		if serviceObject.Labels != nil {
+			if _,ok := serviceObject.Labels[v1.ServiceStatusLabel]; ok {
+				delete(serviceObject.Labels,v1.ServiceStatusLabel)
+				_,err := n.kubeClient.CoreV1().Services(serviceObject.Namespace).Update(&serviceObject)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }

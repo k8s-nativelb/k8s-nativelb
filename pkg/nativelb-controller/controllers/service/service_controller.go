@@ -137,7 +137,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, nil
 	}
 
-	if r.FarmController.CreateOrUpdateFarm(service) {
+	log.Log.V(2).Infof("Service event, service name: %s from namespace %s",service.Name,service.Namespace)
+	if r.FarmController.CreateOrUpdateFarm(service,nil) {
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
 			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
@@ -148,14 +149,16 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileService) UpdateEndpoints(endpoint *corev1.Endpoints) {
-	service, err := r.getServiceFromEndpoint(endpoint)
-	if err != nil {
-		log.Log.Errorf("fail to find service for endpoint %s in namespace %s error: %v", endpoint.Name, endpoint.Namespace, err)
-		return
+func (r *ReconcileService) UpdateEndpoints(service *corev1.Service,endpoint *corev1.Endpoints) {
+	log.Log.V(2).Infof("Service event, service name: %s from namespace %s",service.Name,service.Namespace)
+	if r.FarmController.CreateOrUpdateFarm(service,endpoint) {
+		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
+		if err != nil {
+			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
+		} else {
+			r.FarmController.UpdateSuccessEventOnService(service, "Successfully create/update service on provider")
+		}
 	}
-
-	r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
 }
 
 func (r *ReconcileService) getServiceFromEndpoint(endpointInstance *corev1.Endpoints) (*corev1.Service, error) {

@@ -22,6 +22,7 @@ import (
 
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
 
@@ -74,12 +75,17 @@ const (
 
 	FarmStatusLabel        = "native-lb-farm-status"
 	FarmStatusLabelSynced  = "Synced"
+	FarmStatusLabelSyncing = "Syncing"
 	FarmStatusLabelFailed  = "Failed"
 	FarmStatusLabelDeleted = "Deleted"
 
 	ServiceStatusLabel       = "native-lb-service-status"
 	ServiceStatusLabelSynced = "Synced"
+	ServiceStatusLabelSyncing = "Syncing"
 	ServiceStatusLabelFailed = "Failed"
+
+	NativeLBServerRef = "k8s.nativelb.server"
+	NativeLBFarmRef = "k8s.nativelb.farm"
 
 	DefaultPriority = 1
 	DefaultWeight = 1
@@ -90,8 +96,17 @@ var (
 	GrpcTimeout = 30 * time.Second
 )
 
-func configServer(port *corev1.ServicePort,isInternal bool,nodelist []string) (*Server) {
-	serverSpec := ServerSpec{Bind: "",
+func configServer(port *corev1.ServicePort,isInternal bool,ipAddr string, discovery Discovery,serverName string,farmName string) (*Server,ServerSpec) {
+	labelMap := make(map[string]string)
+	labelMap[NativeLBFarmRef] = farmName
+	var bind string
+	if isInternal {
+		bind = fmt.Sprintf("%s:%d",ipAddr,port.Port)
+	} else {
+		bind = fmt.Sprintf("%s:%d",ipAddr,port.NodePort)
+	}
+
+	serverSpec := ServerSpec{Bind: bind,
 		Protocol:strings.ToLower(fmt.Sprintf("%s",port.Protocol)),
 		BackendConnectionTimeout:BackendConnectionTimeout,
 		BackendIdleTimeout:BackendIdleTimeout,
@@ -99,11 +114,11 @@ func configServer(port *corev1.ServicePort,isInternal bool,nodelist []string) (*
 		MaxConnections:MaxConnections,
 		Balance:Balance,
 		UDP:DefaultUdpSpec(),
-		Discovery:DefaultDiscovery(port,isInternal,nodelist),HealthCheck:DefaultHealthCheck()}
+		Discovery:discovery,HealthCheck:DefaultHealthCheck()}
 
 	serverStatus := ServerStatus{ActiveConnections:0,RxSecond:0,RxTotal:0,TxSecond:0,TxTotal:0}
 
-	return &Server{Spec:serverSpec,Status:serverStatus}
+	return &Server{ObjectMeta:metav1.ObjectMeta{Labels:labelMap,Name:serverName,Namespace:ControllerNamespace},Spec:serverSpec,Status:serverStatus}, serverSpec
 }
 
 
@@ -120,12 +135,13 @@ func DefaultHealthCheck() (HealthCheck){
 }
 
 
-func DefaultDiscovery(port *corev1.ServicePort,isInternal bool,backendServers []string) (Discovery) {
-	return Discovery{Kind:"exec",Backends:CreateBackends(port,isInternal ,backendServers)}
+func DefaultDiscovery(backendServers []BackendSpec) (Discovery) {
+	return Discovery{Kind:"exec",Backends:backendServers}
 }
 
-func CreateBackends(port *corev1.ServicePort,isInternal bool,backendServers []string) ([]Backend) {
+func CreateBackends(port *corev1.ServicePort,isInternal bool,backendServers []string,serverName string) ([]Backend, []BackendSpec) {
 	backends := make([]Backend, len(backendServers))
+	backendsSpec := make([]BackendSpec, len(backendServers))
 	backendPort := ""
 
 	if isInternal {
@@ -136,10 +152,11 @@ func CreateBackends(port *corev1.ServicePort,isInternal bool,backendServers []st
 
 	for idx := range backendServers {
 		backendSpec := BackendSpec{Host:backendServers[idx],Port:backendPort,Priority:DefaultPriority,Weight:DefaultWeight}
-		backends[idx] = Backend{Spec:backendSpec,Status:DefaultBackendStatus()}
+		backends[idx] = Backend{ObjectMeta:metav1.ObjectMeta{Labels: map[string]string{NativeLBServerRef:serverName},Name:fmt.Sprintf("%s-%s",serverName,backendServers[idx]),Namespace:ControllerNamespace},Spec:backendSpec,Status:DefaultBackendStatus()}
+		backendsSpec[idx] = backendSpec
 	}
 
-	return backends
+	return backends, backendsSpec
 }
 
 func DefaultBackendStatus() (BackendStatus) {

@@ -21,20 +21,19 @@ import (
 	//pb "github.com/k8s-nativelb/pkg/proto"
 	"github.com/k8s-nativelb/pkg/log"
 
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/client-go/tools/record"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 
 	"context"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
-	"fmt"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/server"
 )
 
@@ -55,22 +54,6 @@ func NewClusterController(mgr manager.Manager,agentController *agent_controller.
 
 	clusterController := &ClusterController{Controller: controllerInstance,
 		Reconcile: reconcileInstance,agentController:agentController,allocator:make(map[string]*Allocator),clusterConnection:clusterConnection}
-
-	clusters := &v1.ClusterList{}
-	err = clusterController.Reconcile.Client.List(context.Background(),&client.ListOptions{},clusters)
-	if err != nil {
-		log.Log.V(2).Errorf("Fail to get Clusters list")
-		return nil,err
-	}
-
-	for _,cluster := range clusters.Items {
-		allocator, err := NewAllocator(cluster)
-		if err != nil {
-			panic(fmt.Errorf("Fail to create allocator for cluster %s error %v",cluster.Name,err))
-		}
-
-		clusterController.allocator[cluster.Name] = allocator
-	}
 
 	return clusterController, nil
 }

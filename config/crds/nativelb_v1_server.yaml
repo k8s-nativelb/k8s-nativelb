@@ -37,65 +37,19 @@ spec:
                 backend:
                   items:
                     properties:
-                      apiVersion:
+                      host:
                         type: string
-                      kind:
+                      port:
                         type: string
-                      metadata:
-                        type: object
-                      spec:
-                        properties:
-                          host:
-                            type: string
-                          port:
-                            type: string
-                          priority:
-                            format: int64
-                            type: integer
-                          weight:
-                            format: int64
-                            type: integer
-                        required:
-                        - host
-                        - port
-                        type: object
-                      status:
-                        properties:
-                          activeConnections:
-                            format: int64
-                            type: integer
-                          live:
-                            type: boolean
-                          refusedConnections:
-                            format: int64
-                            type: integer
-                          rx:
-                            format: int64
-                            type: integer
-                          rxSecond:
-                            format: int64
-                            type: integer
-                          totalConnections:
-                            format: int64
-                            type: integer
-                          tx:
-                            format: int64
-                            type: integer
-                          txSecond:
-                            format: int64
-                            type: integer
-                        required:
-                        - live
-                        - totalConnections
-                        - activeConnections
-                        - refusedConnections
-                        - rx
-                        - tx
-                        - rxSecond
-                        - txSecond
-                        type: object
+                      priority:
+                        format: int64
+                        type: integer
+                      weight:
+                        format: int64
+                        type: integer
                     required:
-                    - spec
+                    - host
+                    - port
                     type: object
                   type: array
                 kind:
