@@ -1,0 +1,16 @@
+#!/bin/bash
+
+sudo -E apt-get install golang -y
+
+mkdir -p /home/travis/gopath/src/github.com/
+mkdir -p /home/travis/gopath/pkg
+
+cd ..
+
+pwd
+
+ln -s $(pwd)/k8s-nativelb /home/travis/gopath/src/github.com/
+
+cd /home/travis/gopath/src/github.com/k8s-nativelb
+pwd
+ls -la

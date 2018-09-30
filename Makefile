@@ -53,6 +53,9 @@ vet:
 generate:
 	go generate ./pkg/... ./cmd/...
 
+functest:
+	go test ./tests/.
+
 print:
 	./hack/travis.sh
 
