@@ -4,3 +4,9 @@ kubectl apply -f config/crds/
 kubectl apply -f config/samples/cluster_internal_develop.yaml
 
 timeout 2m ci/wait-pods-ok
+
+kubectl get pod --all-namespaces -o wide
+
+kubectl get events --all-namespaces
+
+kubectl get nodes -o wide

@@ -30,7 +30,7 @@ type ServerSpec struct {
 	Protocol                 string      `json:"protocol"`
 	UDP                      UDP         `json:"udp,omitempty"`
 	Balance                  string      `json:"balance"`
-	MaxConnections           int      `json:"maxConnections"`
+	MaxConnections           int         `json:"maxConnections"`
 	ClientIdleTimeout        string      `json:"clientIdleTimeout"`
 	BackendIdleTimeout       string      `json:"backendIdleTimeout"`
 	BackendConnectionTimeout string      `json:"backendConnectionTimeout"`
@@ -41,16 +41,16 @@ type ServerSpec struct {
 // ServerStatus defines the observed state of Server
 // +k8s:openapi-gen=true
 type ServerStatus struct {
-	ActiveConnections int       `json:"activeConnections,omitempty"`
-	RxTotal           int       `json:"rxTotal,omitempty"`
-	TxTotal           int       `json:"txTotal,omitempty"`
-	RxSecond          int       `json:"rxSecond,omitempty"`
-	TxSecond          int       `json:"txSecond,omitempty"`
+	ActiveConnections int `json:"activeConnections,omitempty"`
+	RxTotal           int `json:"rxTotal,omitempty"`
+	TxTotal           int `json:"txTotal,omitempty"`
+	RxSecond          int `json:"rxSecond,omitempty"`
+	TxSecond          int `json:"txSecond,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 type Discovery struct {
-	Kind        string        `json:"kind"`
+	Kind     string        `json:"kind"`
 	Backends []BackendSpec `json:"backend"`
 }
 

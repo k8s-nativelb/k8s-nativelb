@@ -18,30 +18,30 @@ package agent_controller
 
 import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
-	pb "github.com/k8s-nativelb/pkg/proto"
 	"github.com/k8s-nativelb/pkg/log"
+	pb "github.com/k8s-nativelb/pkg/proto"
 
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/client-go/tools/record"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 
 	"context"
 )
 
 type AgentController struct {
-	Controller        controller.Controller
-	Reconcile *Reconcile
+	Controller         controller.Controller
+	Reconcile          *Reconcile
 	AgentStatusChannel chan pb.AgentStatus
 }
 
-func NewAgentController(mgr manager.Manager,AgentStatusChannel chan pb.AgentStatus) (*AgentController, error) {
+func NewAgentController(mgr manager.Manager, AgentStatusChannel chan pb.AgentStatus) (*AgentController, error) {
 	reconcileInstance := newReconciler(mgr)
 	controllerInstance, err := newController(mgr, reconcileInstance)
 	if err != nil {
@@ -49,16 +49,16 @@ func NewAgentController(mgr manager.Manager,AgentStatusChannel chan pb.AgentStat
 	}
 
 	agentController := &AgentController{Controller: controllerInstance,
-		Reconcile: reconcileInstance,AgentStatusChannel:AgentStatusChannel}
+		Reconcile: reconcileInstance, AgentStatusChannel: AgentStatusChannel}
 
 	return agentController, nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ) *Reconcile {
+func newReconciler(mgr manager.Manager) *Reconcile {
 	return &Reconcile{Client: mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		Event:      mgr.GetRecorder(v1.EventRecorderName)}
+		scheme: mgr.GetScheme(),
+		Event:  mgr.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -83,8 +83,8 @@ var _ reconcile.Reconciler = &Reconcile{}
 // ReconcileProvider reconciles a Provider object
 type Reconcile struct {
 	client.Client
-	Event      record.EventRecorder
-	scheme     *runtime.Scheme
+	Event  record.EventRecorder
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Agent object and makes changes based on the state read

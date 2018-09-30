@@ -41,12 +41,12 @@ import (
 
 type FarmController struct {
 	Controller        controller.Controller
-	Reconcile *Reconcile
-	serverController *server_controller.ServerController
+	Reconcile         *Reconcile
+	serverController  *server_controller.ServerController
 	clusterController *cluster_controller.ClusterController
 }
 
-func NewFarmController(mgr manager.Manager,serverController *server_controller.ServerController,clusterController *cluster_controller.ClusterController) (*FarmController, error) {
+func NewFarmController(mgr manager.Manager, serverController *server_controller.ServerController, clusterController *cluster_controller.ClusterController) (*FarmController, error) {
 	reconcileInstance := newReconciler(mgr)
 	controllerInstance, err := newController(mgr, reconcileInstance)
 	if err != nil {
@@ -54,16 +54,16 @@ func NewFarmController(mgr manager.Manager,serverController *server_controller.S
 	}
 
 	farmController := &FarmController{Controller: controllerInstance,
-		Reconcile: reconcileInstance,serverController:serverController,clusterController:clusterController}
+		Reconcile: reconcileInstance, serverController: serverController, clusterController: clusterController}
 
 	return farmController, nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ) *Reconcile {
+func newReconciler(mgr manager.Manager) *Reconcile {
 	return &Reconcile{Client: mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		Event:      mgr.GetRecorder(v1.EventRecorderName)}
+		scheme: mgr.GetScheme(),
+		Event:  mgr.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -88,8 +88,8 @@ var _ reconcile.Reconciler = &Reconcile{}
 // ReconcileProvider reconciles a Provider object
 type Reconcile struct {
 	client.Client
-	Event      record.EventRecorder
-	scheme     *runtime.Scheme
+	Event  record.EventRecorder
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Agent object and makes changes based on the state read
@@ -118,10 +118,10 @@ func (r *Reconcile) GetFarm(farmName string) (*v1.Farm, error) {
 	retry := 5
 	var err error
 
-	for i := 0;i < retry; i++ {
+	for i := 0; i < retry; i++ {
 		err = r.Get(context.TODO(), client.ObjectKey{Namespace: v1.ControllerNamespace, Name: farmName}, farm)
 		if err != nil && !errors.IsNotFound(err) {
-			return nil,err
+			return nil, err
 		} else if err == nil {
 			return farm, nil
 		}

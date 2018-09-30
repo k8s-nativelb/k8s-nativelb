@@ -38,8 +38,8 @@ import (
 	"time"
 
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/farm"
 	"github.com/k8s-nativelb/pkg/log"
+	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/farm"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -48,21 +48,20 @@ type ServiceController struct {
 	ReconcileService *ReconcileService
 }
 
-func (s *ServiceController)UpdateAllServices() {
+func (s *ServiceController) UpdateAllServices() {
 	services := &corev1.ServiceList{}
-	err := s.ReconcileService.List(context.Background(),&client.ListOptions{},services)
+	err := s.ReconcileService.List(context.Background(), &client.ListOptions{}, services)
 	if err != nil {
-		log.Log.Errorf("Fail to get all services error: %v",err)
+		log.Log.Errorf("Fail to get all services error: %v", err)
 	}
 
-	for _,service := range services.Items {
+	for _, service := range services.Items {
 		s.ReconcileService.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
 	}
 }
 
-
-func NewServiceController(mgr manager.Manager,kubeClient *kubernetes.Clientset, farmController *farm_controller.FarmController) (*ServiceController, error) {
-	reconcileService := newReconciler(mgr,kubeClient,farmController)
+func NewServiceController(mgr manager.Manager, kubeClient *kubernetes.Clientset, farmController *farm_controller.FarmController) (*ServiceController, error) {
+	reconcileService := newReconciler(mgr, kubeClient, farmController)
 
 	controllerInstance, err := newController(mgr, reconcileService)
 	if err != nil {
@@ -78,12 +77,12 @@ func NewServiceController(mgr manager.Manager,kubeClient *kubernetes.Clientset, 
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager,kubeClient *kubernetes.Clientset, farmController *farm_controller.FarmController) *ReconcileService {
+func newReconciler(mgr manager.Manager, kubeClient *kubernetes.Clientset, farmController *farm_controller.FarmController) *ReconcileService {
 	return &ReconcileService{Client: mgr.GetClient(),
 		scheme:         mgr.GetScheme(),
 		Event:          mgr.GetRecorder(v1.EventRecorderName),
 		FarmController: farmController,
-kubeClient:kubeClient}
+		kubeClient:     kubeClient}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -111,7 +110,7 @@ type ReconcileService struct {
 	Event          record.EventRecorder
 	FarmController *farm_controller.FarmController
 	scheme         *runtime.Scheme
-	kubeClient *kubernetes.Clientset
+	kubeClient     *kubernetes.Clientset
 }
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
@@ -137,8 +136,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, nil
 	}
 
-	log.Log.V(2).Infof("Service event, service name: %s from namespace %s",service.Name,service.Namespace)
-	if r.FarmController.CreateOrUpdateFarm(service,nil) {
+	log.Log.V(2).Infof("Service event, service name: %s from namespace %s", service.Name, service.Namespace)
+	if r.FarmController.CreateOrUpdateFarm(service, nil) {
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
 			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
@@ -149,9 +148,9 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileService) UpdateEndpoints(service *corev1.Service,endpoint *corev1.Endpoints) {
-	log.Log.V(2).Infof("Service event, service name: %s from namespace %s",service.Name,service.Namespace)
-	if r.FarmController.CreateOrUpdateFarm(service,endpoint) {
+func (r *ReconcileService) UpdateEndpoints(service *corev1.Service, endpoint *corev1.Endpoints) {
+	log.Log.V(2).Infof("Service event, service name: %s from namespace %s", service.Name, service.Namespace)
+	if r.FarmController.CreateOrUpdateFarm(service, endpoint) {
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
 			log.Log.Errorf("Fail to update service status error message: %s", err.Error())

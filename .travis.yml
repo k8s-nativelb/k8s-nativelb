@@ -41,7 +41,6 @@ before_script:
 - bash -x ci/prepare-host $CPLATFORM $CVER
 - bash -x ci/start-cluster $CPLATFORM $CVER
 - bash -x ci/deploy-nativelb $CPLATFORM $CVER
-- bash -x ci/prepare-test
 
 script:
 - timeout 5m bash -x test.sh

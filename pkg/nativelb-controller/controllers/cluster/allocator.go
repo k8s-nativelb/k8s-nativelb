@@ -10,8 +10,8 @@ import (
 )
 
 type Allocator struct {
-	mutex         sync.Mutex
-	ips           []string
+	mutex sync.Mutex
+	ips   []string
 }
 
 func NewAllocator(clusterObject *v1.Cluster) (*Allocator, error) {
@@ -25,14 +25,14 @@ func NewAllocator(clusterObject *v1.Cluster) (*Allocator, error) {
 
 	log.Log.Infof("number of free ip addresses %d", len(ips)-len(clusterObject.Status.AllocatedIps))
 
-	return &Allocator{ips: ips,mutex:sync.Mutex{}}, nil
+	return &Allocator{ips: ips, mutex: sync.Mutex{}}, nil
 }
 
-func (a *Allocator) Allocate(farm *v1.Farm,clusterObject *v1.Cluster) (string, error) {
+func (a *Allocator) Allocate(farm *v1.Farm, clusterObject *v1.Cluster) (string, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	ipAddr, isExist := a.AllocatedFarm(farm,clusterObject)
+	ipAddr, isExist := a.AllocatedFarm(farm, clusterObject)
 	if isExist {
 		return ipAddr, nil
 	}
@@ -53,7 +53,7 @@ func (a *Allocator) Allocate(farm *v1.Farm,clusterObject *v1.Cluster) (string, e
 	return ipAddr, nil
 }
 
-func (a *Allocator) Release(ipAddr string,clusterObject *v1.Cluster) {
+func (a *Allocator) Release(ipAddr string, clusterObject *v1.Cluster) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -81,10 +81,10 @@ func (a *Allocator) findFreeIpAddr(clusterObject *v1.Cluster) (string, error) {
 	return "", fmt.Errorf("fail to find any free address")
 }
 
-func (a *Allocator) AllocatedFarm(farm *v1.Farm,clusterObject *v1.Cluster) (string,bool) {
+func (a *Allocator) AllocatedFarm(farm *v1.Farm, clusterObject *v1.Cluster) (string, bool) {
 	for allocatedIp := range clusterObject.Status.AllocatedIps {
 		if clusterObject.Status.AllocatedIps[allocatedIp] == farm.Name {
-			return allocatedIp , true
+			return allocatedIp, true
 		}
 	}
 

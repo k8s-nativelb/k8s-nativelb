@@ -39,13 +39,13 @@ import (
 
 type ClusterController struct {
 	Controller        controller.Controller
-	Reconcile *Reconcile
-	agentController *agent_controller.AgentController
+	Reconcile         *Reconcile
+	agentController   *agent_controller.AgentController
 	clusterConnection *server.NativeLBGrpcServer
-	allocator map[string]*Allocator
+	allocator         map[string]*Allocator
 }
 
-func NewClusterController(mgr manager.Manager,agentController *agent_controller.AgentController,clusterConnection *server.NativeLBGrpcServer) (*ClusterController, error) {
+func NewClusterController(mgr manager.Manager, agentController *agent_controller.AgentController, clusterConnection *server.NativeLBGrpcServer) (*ClusterController, error) {
 	reconcileInstance := newReconciler(mgr)
 	controllerInstance, err := newController(mgr, reconcileInstance)
 	if err != nil {
@@ -53,16 +53,16 @@ func NewClusterController(mgr manager.Manager,agentController *agent_controller.
 	}
 
 	clusterController := &ClusterController{Controller: controllerInstance,
-		Reconcile: reconcileInstance,agentController:agentController,allocator:make(map[string]*Allocator),clusterConnection:clusterConnection}
+		Reconcile: reconcileInstance, agentController: agentController, allocator: make(map[string]*Allocator), clusterConnection: clusterConnection}
 
 	return clusterController, nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ) *Reconcile {
+func newReconciler(mgr manager.Manager) *Reconcile {
 	return &Reconcile{Client: mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		Event:      mgr.GetRecorder(v1.EventRecorderName)}
+		scheme: mgr.GetScheme(),
+		Event:  mgr.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -87,8 +87,8 @@ var _ reconcile.Reconciler = &Reconcile{}
 // ReconcileProvider reconciles a Provider object
 type Reconcile struct {
 	client.Client
-	Event      record.EventRecorder
-	scheme     *runtime.Scheme
+	Event  record.EventRecorder
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Agent object and makes changes based on the state read
