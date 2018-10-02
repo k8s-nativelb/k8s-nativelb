@@ -2,6 +2,8 @@
 
 kubectl apply -f config/crds/
 kubectl apply -f config/samples/cluster_internal_develop.yaml
+kubectl apply -f config/rbac/rbac_role_binding.yaml
+kubectl apply -f config/controller/nativelb-controller.yaml
 
 timeout 2m ci/wait-pods-ok
 

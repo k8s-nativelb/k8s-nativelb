@@ -1,7 +1,8 @@
 # Image URL to use all building/pushing image targets
-IMG_CONTROLLER ?= quay.io/k8s-nativelb/k8s-nativelb-controller:latest
-IMG_API ?= quay.io/k8s-nativelb/k8s-nativelb-api:latest
-IMG_AGENT ?= quay.io/k8s-nativelb/k8s-nativelb-agent:latest
+IMG_CONTROLLER ?= quay.io/k8s-nativelb/nativelb-controller
+IMG_API ?= quay.io/k8s-nativelb/nativelb-api
+IMG_AGENT ?= quay.io/k8s-nativelb/nativelb-agent
+IMAGE_TAG ?= latest
 
 
 all: docker-test docker-build deploy
@@ -56,20 +57,20 @@ generate:
 functest:
 	go test ./tests/.
 
-print:
-	./hack/travis.sh
-
 # Test Inside a docker
-#docker-test:
-#	./build-test.sh
+docker-test:
+	./test.sh
+
+docker-functest:
+	./func-test.sh
 
 # Build the docker image
-#docker-build: docker-test
-#	docker build . -t ${IMG}
+docker-build: docker-test
+	docker build -f./cmd/nativelb-controller/Dockerfile -t ${IMG_CONTROLLER}:${IMAGE_TAG} .
 
 # Push the docker image
-#docker-push: docker-build
-#	docker push ${IMG}
+docker-push: docker-build
+	docker push ${IMG_CONTROLLER}:${IMAGE_TAG}
 
 #publish:
 #	docker build . -t ${IMG}

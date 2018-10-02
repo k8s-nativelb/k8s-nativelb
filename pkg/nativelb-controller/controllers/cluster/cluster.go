@@ -201,7 +201,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 
 			err = c.Reconcile.Delete(context.Background(), deletedBackend)
 			if err != nil {
-				log.Log.Errorf("Fail to delete backend %s error: %v", deletedBackend, err)
+				log.Log.Errorf("Fail to delete backend %s error: %v", deletedBackend.Name, err)
 				return err
 			}
 		}
