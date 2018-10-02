@@ -17,9 +17,9 @@ limitations under the License.
 package main
 
 import (
-	"os"
 	"fmt"
 	"github.com/k8s-nativelb/pkg/nativelb-agent"
+	"os"
 )
 
 func main() {
@@ -48,10 +48,10 @@ func main() {
 
 	syncInterface, isExist := os.LookupEnv("SYNC_INTERFACE")
 	if !isExist {
-		syncInterface= controlInterface
+		syncInterface = controlInterface
 	}
 
-	agent, err := nativelb_agent.NewNativeAgent(controllerUrl,clusterName,controlInterface,dataInterface,syncInterface)
+	agent, err := nativelb_agent.NewNativeAgent(controllerUrl, clusterName, controlInterface, dataInterface, syncInterface)
 	if err != nil {
 		panic(err)
 	}

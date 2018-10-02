@@ -18,33 +18,35 @@ package farm_controller
 
 import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
+	"time"
+
 	//pb "github.com/k8s-nativelb/pkg/proto"
 	"github.com/k8s-nativelb/pkg/log"
 
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/client-go/tools/record"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 
 	"context"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/server"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/cluster"
+	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/server"
 )
 
 type FarmController struct {
 	Controller        controller.Controller
-	Reconcile *Reconcile
-	serverController *server_controller.ServerController
+	Reconcile         *Reconcile
+	serverController  *server_controller.ServerController
 	clusterController *cluster_controller.ClusterController
 }
 
-func NewFarmController(mgr manager.Manager,serverController *server_controller.ServerController,clusterController *cluster_controller.ClusterController) (*FarmController, error) {
+func NewFarmController(mgr manager.Manager, serverController *server_controller.ServerController, clusterController *cluster_controller.ClusterController) (*FarmController, error) {
 	reconcileInstance := newReconciler(mgr)
 	controllerInstance, err := newController(mgr, reconcileInstance)
 	if err != nil {
@@ -52,16 +54,16 @@ func NewFarmController(mgr manager.Manager,serverController *server_controller.S
 	}
 
 	farmController := &FarmController{Controller: controllerInstance,
-		Reconcile: reconcileInstance,serverController:serverController,clusterController:clusterController}
+		Reconcile: reconcileInstance, serverController: serverController, clusterController: clusterController}
 
 	return farmController, nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ) *Reconcile {
+func newReconciler(mgr manager.Manager) *Reconcile {
 	return &Reconcile{Client: mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		Event:      mgr.GetRecorder(v1.EventRecorderName)}
+		scheme: mgr.GetScheme(),
+		Event:  mgr.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -86,8 +88,8 @@ var _ reconcile.Reconciler = &Reconcile{}
 // ReconcileProvider reconciles a Provider object
 type Reconcile struct {
 	client.Client
-	Event      record.EventRecorder
-	scheme     *runtime.Scheme
+	Event  record.EventRecorder
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Agent object and makes changes based on the state read
@@ -109,4 +111,22 @@ func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, erro
 
 	log.Log.V(4).Infof("%+v\n", instance)
 	return reconcile.Result{}, nil
+}
+
+func (r *Reconcile) GetFarm(farmName string) (*v1.Farm, error) {
+	farm := &v1.Farm{}
+	retry := 5
+	var err error
+
+	for i := 0; i < retry; i++ {
+		err = r.Get(context.TODO(), client.ObjectKey{Namespace: v1.ControllerNamespace, Name: farmName}, farm)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		} else if err == nil {
+			return farm, nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return nil, err
 }

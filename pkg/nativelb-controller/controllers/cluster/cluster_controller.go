@@ -21,32 +21,31 @@ import (
 	//pb "github.com/k8s-nativelb/pkg/proto"
 	"github.com/k8s-nativelb/pkg/log"
 
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/client-go/tools/record"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 
 	"context"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
-	"fmt"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/server"
 )
 
 type ClusterController struct {
 	Controller        controller.Controller
-	Reconcile *Reconcile
-	agentController *agent_controller.AgentController
+	Reconcile         *Reconcile
+	agentController   *agent_controller.AgentController
 	clusterConnection *server.NativeLBGrpcServer
-	allocator map[string]*Allocator
+	allocator         map[string]*Allocator
 }
 
-func NewClusterController(mgr manager.Manager,agentController *agent_controller.AgentController,clusterConnection *server.NativeLBGrpcServer) (*ClusterController, error) {
+func NewClusterController(mgr manager.Manager, agentController *agent_controller.AgentController, clusterConnection *server.NativeLBGrpcServer) (*ClusterController, error) {
 	reconcileInstance := newReconciler(mgr)
 	controllerInstance, err := newController(mgr, reconcileInstance)
 	if err != nil {
@@ -54,32 +53,16 @@ func NewClusterController(mgr manager.Manager,agentController *agent_controller.
 	}
 
 	clusterController := &ClusterController{Controller: controllerInstance,
-		Reconcile: reconcileInstance,agentController:agentController,allocator:make(map[string]*Allocator),clusterConnection:clusterConnection}
-
-	clusters := &v1.ClusterList{}
-	err = clusterController.Reconcile.Client.List(context.Background(),&client.ListOptions{},clusters)
-	if err != nil {
-		log.Log.V(2).Errorf("Fail to get Clusters list")
-		return nil,err
-	}
-
-	for _,cluster := range clusters.Items {
-		allocator, err := NewAllocator(cluster)
-		if err != nil {
-			panic(fmt.Errorf("Fail to create allocator for cluster %s error %v",cluster.Name,err))
-		}
-
-		clusterController.allocator[cluster.Name] = allocator
-	}
+		Reconcile: reconcileInstance, agentController: agentController, allocator: make(map[string]*Allocator), clusterConnection: clusterConnection}
 
 	return clusterController, nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ) *Reconcile {
+func newReconciler(mgr manager.Manager) *Reconcile {
 	return &Reconcile{Client: mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		Event:      mgr.GetRecorder(v1.EventRecorderName)}
+		scheme: mgr.GetScheme(),
+		Event:  mgr.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -104,8 +87,8 @@ var _ reconcile.Reconciler = &Reconcile{}
 // ReconcileProvider reconciles a Provider object
 type Reconcile struct {
 	client.Client
-	Event      record.EventRecorder
-	scheme     *runtime.Scheme
+	Event  record.EventRecorder
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Agent object and makes changes based on the state read

@@ -32,13 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/service"
 	"github.com/k8s-nativelb/pkg/log"
+	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/service"
 )
 
 type NodeController struct {

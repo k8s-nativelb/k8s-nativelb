@@ -34,8 +34,8 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/service"
 	"github.com/k8s-nativelb/pkg/log"
+	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/service"
 )
 
 type EndPointController struct {
@@ -112,7 +112,11 @@ func (r *ReconcileEndPoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	if len(endpoint.Subsets) > 0 {
-		r.serviceController.ReconcileService.UpdateEndpoints(endpoint)
+		service := &corev1.Service{}
+		err := r.Get(context.Background(), client.ObjectKey{Namespace: endpoint.Namespace, Name: endpoint.Name}, service)
+		if err == nil && service.Spec.Type == "LoadBalancer" {
+			r.serviceController.ReconcileService.UpdateEndpoints(service, endpoint)
+		}
 	}
 	return reconcile.Result{}, nil
 }

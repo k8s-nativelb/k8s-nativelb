@@ -1,32 +1,46 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: nativelb
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: external-loadbalancer-controller
-  namespace: external-loadbalancer
+  name: nativelb-controller
+  namespace: nativelb
   labels:
-    control-plane: external-loadbalancer-controller
-    controller-tools.k8s.io: "1.0"
+    control-plane: nativelb-controller
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      control-plane: external-loadbalancer-controller
-      controller-tools.k8s.io: "1.0"
+      control-plane: nativelb-controller
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+          [
+            {
+              "key": "CriticalAddonsOnly",
+              "operator": "Exists"
+            }
+          ]
       labels:
-        control-plane: external-loadbalancer-controller
-        controller-tools.k8s.io: "1.0"
+        control-plane: nativelb-controller
     spec:
       containers:
-      - command:
-        - /root/manager
-        image: quay.io/k8s-external-loadbalancer/controller:latest
-        name: manager
+      - image: quay.io/k8s-nativelb/nativelb-controller:latest
+        imagePullPolicy: IfNotPresent
+        name: controller
         resources:
           limits:
-            cpu: 500m
-            memory: 300Mi
+            cpu: 1000m
+            memory: 500Mi
           requests:
             cpu: 500m
-            memory: 100Mi
+            memory: 200Mi
       terminationGracePeriodSeconds: 10
