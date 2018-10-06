@@ -1,7 +1,6 @@
 package cluster_controller
 
 import (
-	"context"
 	"fmt"
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/log"
@@ -9,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 //func (c *ClusterController) CreateFarm(farm *v1.Farm,cluster *v1.Cluster) (string, error) {
@@ -108,8 +106,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 	labelSelector := labels.Set{}
 	labelSelector[v1.NativeLBFarmRef] = farmName
 
-	serversList := &v1.ServerList{}
-	err := c.Reconcile.Client.List(context.Background(), &client.ListOptions{LabelSelector: labelSelector.AsSelector()}, serversList)
+	serversList, err := c.Server().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 	if err != nil {
 		log.Log.V(2).Errorf("fail to get a list of servers related to %s farm error: %v", farmName, err)
 		return err
@@ -121,20 +118,14 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 
 	for _, serverDataObject := range serverData {
 		serverName := serverDataObject.Server.Name
-		serverObject, err := c.GetServer(serverName)
+		serverObject, err := c.Server().Get(serverName)
 		if err != nil && errors.IsNotFound(err) {
 			serverObject = serverDataObject.Server.DeepCopy()
 			serverObject.OwnerReferences = serverOwnerRef
-			err := c.Reconcile.Create(context.TODO(), serverObject)
+			serverObject, err = c.Server().Create(serverObject)
 			if err != nil {
 				return err
 			}
-
-			serverObject, err = c.GetServer(serverName)
-			if err != nil {
-				return err
-			}
-
 		} else if err != nil {
 			return err
 		} else {
@@ -142,7 +133,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 			serverObject.Spec = serverDataObject.Server.Spec
 			serverObject.Status = serverDataObject.Server.Status
 
-			err := c.Reconcile.Client.Update(context.TODO(), serverObject)
+			serverObject, err = c.Server().Update(serverObject)
 			if err != nil {
 				return err
 			}
@@ -156,8 +147,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 		backendLabelSelector := labels.Set{}
 		backendLabelSelector[v1.NativeLBServerRef] = serverObject.Name
 
-		backendsList := &v1.BackendList{}
-		err = c.Reconcile.Client.List(context.TODO(), &client.ListOptions{LabelSelector: backendLabelSelector.AsSelector()}, backendsList)
+		backendsList, err := c.Backend().List(&client.ListOptions{LabelSelector: backendLabelSelector.AsSelector()})
 		if err != nil {
 			log.Log.V(2).Errorf("fail to get a list of backends related to %s server error: %v", serverObject.Name, err)
 			return err
@@ -168,11 +158,11 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 		}
 
 		for _, backend := range serverDataObject.Backends {
-			backendObject, err := c.GetBackend(backend.Name)
+			backendObject, err := c.Backend().Get(backend.Name)
 			if err != nil && errors.IsNotFound(err) {
 				backendObject = backend.DeepCopy()
 				backendObject.OwnerReferences = ownerRef
-				err := c.Reconcile.Create(context.Background(), backendObject)
+				backendObject, err = c.Backend().Create(backendObject)
 				if err != nil {
 					return err
 				}
@@ -182,7 +172,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 				backendObject.OwnerReferences = ownerRef
 				backendObject.Spec = backend.Spec
 				backendObject.Status = backend.Status
-				err := c.Reconcile.Update(context.Background(), backendObject)
+				backendObject, err = c.Backend().Update(backendObject)
 				if err != nil {
 					return err
 				}
@@ -192,29 +182,16 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 		}
 
 		for deletedBackendName := range existBackendsMap {
-			deletedBackend := &v1.Backend{}
-			err = c.Reconcile.Get(context.Background(), client.ObjectKey{Name: deletedBackendName, Namespace: v1.ControllerNamespace}, deletedBackend)
-			if err != nil && !errors.IsNotFound(err) {
-				log.Log.Errorf("Fail to get backend %s for deletion error: %v", deletedBackendName, err)
-				return err
-			}
-
-			err = c.Reconcile.Delete(context.Background(), deletedBackend)
+			err = c.Backend().Delete(deletedBackendName)
 			if err != nil {
-				log.Log.Errorf("Fail to delete backend %s error: %v", deletedBackend.Name, err)
+				log.Log.Errorf("Fail to delete backend %s error: %v", deletedBackendName, err)
 				return err
 			}
 		}
 	}
 
 	for deletedServerName := range existServersMap {
-		deletedServer, err := c.GetServer(deletedServerName)
-		if err != nil {
-			log.Log.Errorf("Fail to get server %s for deletion error: %v", deletedServerName, err)
-			return err
-		}
-
-		err = c.Reconcile.Delete(context.Background(), deletedServer)
+		err = c.Server().Delete(deletedServerName)
 		if err != nil {
 			log.Log.Errorf("Fail to delete server %s error: %v", deletedServerName, err)
 			return err
@@ -230,7 +207,10 @@ func (c *ClusterController) updateLabels(cluster *v1.Cluster, status string) {
 	}
 	cluster.Status.ConnectionStatus = status
 	cluster.Status.LastUpdate = metav1.Now()
-	c.Reconcile.Update(context.TODO(), cluster)
+	cluster, err := c.Cluster().Update(cluster)
+	if err != nil {
+		log.Log.Errorf("Fail to update labels on cluster %s error: %v", cluster.Name, err)
+	}
 }
 
 func (c *ClusterController) clusterUpdateFailStatus(cluster *v1.Cluster, eventType, reason, message string) {
@@ -244,47 +224,11 @@ func (c *ClusterController) clusterUpdateSuccessStatus(cluster *v1.Cluster, even
 }
 
 func (c *ClusterController) updateClusterObject(cluster *v1.Cluster) error {
-	err := c.Reconcile.Update(context.Background(), cluster)
+	cluster, err := c.Cluster().Update(cluster)
 	if err != nil {
 		log.Log.Errorf("fail to update cluster %s error %v", cluster.Name, err)
 		return err
 	}
 
 	return nil
-}
-
-func (c *ClusterController) GetServer(serverName string) (*v1.Server, error) {
-	server := &v1.Server{}
-	retry := 5
-	var err error
-
-	for i := 0; i < retry; i++ {
-		err = c.Reconcile.Get(context.TODO(), client.ObjectKey{Namespace: v1.ControllerNamespace, Name: serverName}, server)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, err
-		} else if err == nil {
-			return server, nil
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	return nil, err
-}
-
-func (c *ClusterController) GetBackend(backendName string) (*v1.Backend, error) {
-	backend := &v1.Backend{}
-	retry := 5
-	var err error
-
-	for i := 0; i < retry; i++ {
-		err = c.Reconcile.Get(context.TODO(), client.ObjectKey{Namespace: v1.ControllerNamespace, Name: backendName}, backend)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, err
-		} else if err == nil {
-			return backend, nil
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	return nil, err
 }

@@ -34,7 +34,7 @@ func (f *FarmController) CreateOrUpdateFarm(service *corev1.Service, endpoints *
 		service.Namespace,
 		service.Name)
 
-	farm, err := f.Reconcile.GetFarm(farmName)
+	farm, err := f.Farm().Get(farmName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to get farm object for service %s on namespace %s", service.Name, service.Namespace))
@@ -140,6 +140,7 @@ func (f *FarmController) UpdateSuccessEventOnService(service *corev1.Service, me
 }
 
 func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clusterInstance *v1.Cluster) {
+	// TODO: Need to change this!!!!
 	if farm.Spec.Cluster != clusterInstance.Name {
 		err := f.clusterController.DeleteFarm(farm, clusterInstance)
 		if err != nil {
@@ -153,14 +154,14 @@ func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clus
 			}
 
 			f.FarmUpdateFailDeleteStatus(deletedProviderFarm, "Warning", "FarmDeleteFail", err.Error())
-			err = f.Reconcile.Client.Update(context.Background(), deletedProviderFarm)
+			deletedProviderFarm, err = f.Farm().Update(deletedProviderFarm)
 			if err != nil {
 				log.Log.V(2).Error("Fail to create a new farm for for the deleted farm on cluster")
 			}
 		}
 
 		delete(service.Labels, v1.ServiceStatusLabel)
-		f.Reconcile.Client.Delete(context.Background(), farm)
+		f.Farm().Delete(farm.Name)
 		//f.createFarm(service)
 		return
 	}
@@ -184,7 +185,7 @@ func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clus
 		return
 	}
 
-	errCreateFarm := f.Reconcile.Update(context.Background(), farm)
+	farm, errCreateFarm := f.Farm().Update(farm)
 	if errCreateFarm != nil {
 		log.Log.V(2).Errorf("Fail to update farm error message: %s", errCreateFarm.Error())
 		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to update farm error message: %s", errCreateFarm.Error()))
@@ -196,7 +197,7 @@ func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clus
 	}
 
 	f.FarmUpdateSuccessStatus(farm, farmIpAddress, "Normal", "FarmUpdate", fmt.Sprintf("Farm updated on cluster %s", farm.Spec.Cluster))
-	err = f.Reconcile.Update(context.Background(), farm)
+	farm, err = f.Farm().Update(farm)
 	if err != nil {
 		log.Log.V(2).Errorf("Fail to update farm status error message: %s", errCreateFarm.Error())
 		return
@@ -207,18 +208,17 @@ func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clus
 }
 
 func (f *FarmController) DeleteFarm(serviceNamespace, serviceName string) {
-	farm, err := f.Reconcile.GetFarm(fmt.Sprintf("%s-%s", serviceNamespace, serviceName))
+	farm, err := f.Farm().Get(fmt.Sprintf("%s-%s", serviceNamespace, serviceName))
 	if err != nil {
 		log.Log.V(2).Errorf("Fail to find farm %s-%s for deletion", serviceName, serviceNamespace)
 		return
 	}
 
-	clusterInstance := &v1.Cluster{}
-	err = f.Reconcile.Get(context.Background(), client.ObjectKey{Name: farm.Spec.Cluster, Namespace: v1.ControllerNamespace}, clusterInstance)
+	clusterInstance, err := f.Cluster().Get(farm.Spec.Cluster)
 	if err != nil {
 		log.Log.V(2).Errorf("Fail to get cluster %s error message: %s", farm.Spec.Cluster, err.Error())
 		f.FarmUpdateFailDeleteStatus(farm, "Warning", "FarmDeleteFail", err.Error())
-		err = f.Reconcile.Update(context.Background(), farm)
+		farm, err = f.Farm().Update(farm)
 		if err != nil {
 			log.Log.V(2).Errorf("Fail to update delete label on farm %s", farm.Name)
 		}
@@ -230,7 +230,7 @@ func (f *FarmController) DeleteFarm(serviceNamespace, serviceName string) {
 	if err != nil {
 		log.Log.V(2).Errorf("Fail to delete farm on cluster %s error message: %s", farm.Spec.Cluster, err.Error())
 		f.FarmUpdateFailDeleteStatus(farm, "Warning", "FarmDeleteFail", err.Error())
-		err = f.Reconcile.Client.Update(context.Background(), farm)
+		farm, err = f.Farm().Update(farm)
 		if err != nil {
 			log.Log.V(2).Errorf("Fail to update delete label on farm %s", farm.Name)
 		}
@@ -238,7 +238,7 @@ func (f *FarmController) DeleteFarm(serviceNamespace, serviceName string) {
 		return
 	}
 
-	err = f.Reconcile.Delete(context.Background(), farm)
+	err = f.Farm().Delete(farm.Name)
 	if err != nil {
 		log.Log.V(2).Errorf("Fail to delete farm %s", farm.Name)
 	}
@@ -321,8 +321,9 @@ func (f *FarmController) needToUpdate(farm *v1.Farm, service *corev1.Service) (b
 }
 
 func (f *FarmController) getServiceFromFarm(farmInstance *v1.Farm) (*corev1.Service, error) {
+	nativeClient := f.GetClient()
 	service := &corev1.Service{}
-	err := f.Reconcile.Client.Get(context.Background(), client.ObjectKey{Namespace: farmInstance.Spec.ServiceNamespace, Name: farmInstance.Spec.ServiceName}, service)
+	err := nativeClient.Get(context.Background(), client.ObjectKey{Namespace: farmInstance.Spec.ServiceNamespace, Name: farmInstance.Spec.ServiceName}, service)
 	return service, err
 }
 
@@ -339,9 +340,10 @@ func (f *FarmController) serviceExist(farmInstance *v1.Farm) bool {
 }
 
 func (f *FarmController) getEndPoints(service *corev1.Service) ([]string, error) {
+	nativeClient := f.GetClient()
 	endpointsList := make([]string, 0)
 	endpoints := &corev1.Endpoints{}
-	err := f.Reconcile.Client.Get(context.Background(), client.ObjectKey{Namespace: service.Namespace, Name: service.Name}, endpoints)
+	err := nativeClient.Get(context.Background(), client.ObjectKey{Namespace: service.Namespace, Name: service.Name}, endpoints)
 	if err != nil {
 		return endpointsList, err
 	}
@@ -358,9 +360,10 @@ func (f *FarmController) getEndPoints(service *corev1.Service) ([]string, error)
 }
 
 func (f *FarmController) getClusterNodes() ([]string, error) {
+	nativeClient := f.GetClient()
 	nodeList := make([]string, 0)
 	nodes := &corev1.NodeList{}
-	err := f.Reconcile.Client.List(context.Background(), &client.ListOptions{}, nodes)
+	err := nativeClient.List(context.Background(), &client.ListOptions{}, nodes)
 	if err != nil {
 		return nodeList, err
 	}
@@ -380,12 +383,10 @@ func (f *FarmController) reSyncFailFarms() {
 	resyncTick := time.Tick(120 * time.Second)
 
 	for range resyncTick {
-		var farmList v1.FarmList
-
 		// Sync farm need to be deleted
 		labelSelector := labels.Set{}
 		labelSelector[v1.FarmStatusLabel] = v1.FarmStatusLabelDeleted
-		err := f.Reconcile.Client.List(context.TODO(), &client.ListOptions{LabelSelector: labelSelector.AsSelector()}, &farmList)
+		farmList, err := f.Farm().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 		if err != nil {
 			log.Log.V(2).Error("reSyncProcess: Fail to get farm list")
 		} else {
@@ -397,8 +398,8 @@ func (f *FarmController) reSyncFailFarms() {
 					if err != nil {
 						log.Log.V(2).Errorf("fail to get service %s on namespace %s from farm with error message %s", farmInstance.Spec.ServiceNamespace, farmInstance.Spec.ServiceName, err.Error())
 					}
-					clusterInstance := &v1.Cluster{}
-					err = f.Reconcile.Get(context.Background(), client.ObjectKey{Name: farmInstance.Spec.Cluster, Namespace: v1.ControllerNamespace}, clusterInstance)
+
+					clusterInstance, err := f.Cluster().Get(farmInstance.Spec.Cluster)
 					if err != nil {
 						log.Log.V(2).Errorf("fail to find cluster object %s for farm %s", farmInstance.Spec.Cluster, farmInstance.Name)
 					} else {
@@ -412,16 +413,16 @@ func (f *FarmController) reSyncFailFarms() {
 
 func (f *FarmController) CleanRemovedServices() {
 	cleanTick := time.NewTimer(10 * time.Minute)
+	nativeClient := f.GetClient()
 
 	for range cleanTick.C {
-		var farmList = v1.FarmList{}
-		err := f.Reconcile.Client.List(context.TODO(), nil, &farmList)
+		farmList, err := f.Farm().List(nil)
 		if err != nil {
 			log.Log.V(2).Error("CleanRemovedServices: Fail to get farm list")
 		} else {
 			service := &corev1.Service{}
 			for _, farmInstance := range farmList.Items {
-				err := f.Reconcile.Client.Get(context.Background(), client.ObjectKey{Name: farmInstance.Spec.ServiceName, Namespace: farmInstance.Spec.ServiceNamespace}, service)
+				err := nativeClient.Get(context.Background(), client.ObjectKey{Name: farmInstance.Spec.ServiceName, Namespace: farmInstance.Spec.ServiceNamespace}, service)
 				if err != nil && errors.IsNotFound(err) {
 					f.DeleteFarm(farmInstance.Spec.ServiceNamespace, farmInstance.Spec.ServiceName)
 				}
@@ -431,12 +432,12 @@ func (f *FarmController) CleanRemovedServices() {
 }
 
 func (f *FarmController) getCluster(service *corev1.Service) (*v1.Cluster, error) {
-	var clusterInstance v1.Cluster
+	var clusterInstance *v1.Cluster
 
 	var err error
 
 	if value, ok := service.ObjectMeta.Annotations[v1.NativeLBAnnotationKey]; ok {
-		err = f.Reconcile.Client.Get(context.TODO(), client.ObjectKey{Name: value, Namespace: v1.ControllerNamespace}, &clusterInstance)
+		clusterInstance, err = f.Cluster().Get(value)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return nil, fmt.Errorf("Provider Not found for service : %s", service.Name)
@@ -445,10 +446,9 @@ func (f *FarmController) getCluster(service *corev1.Service) (*v1.Cluster, error
 		}
 
 	} else {
-		var clusterList v1.ClusterList
 		labelSelector := labels.Set{}
 		labelSelector[v1.NativeLBDefaultLabel] = "true"
-		err = f.Reconcile.Client.List(context.TODO(), &client.ListOptions{LabelSelector: labelSelector.AsSelector()}, &clusterList)
+		clusterList, err := f.Cluster().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 		if err != nil {
 			return nil, err
 		}
@@ -459,10 +459,10 @@ func (f *FarmController) getCluster(service *corev1.Service) (*v1.Cluster, error
 			return nil, fmt.Errorf("More then one default provider found")
 		}
 
-		clusterInstance = clusterList.Items[0]
+		clusterInstance = &clusterList.Items[0]
 	}
 
-	return &clusterInstance, nil
+	return clusterInstance, nil
 }
 
 func (f *FarmController) createFarmObject(service *corev1.Service, farmName string, cluster *v1.Cluster) (*v1.Farm, error) {
@@ -477,12 +477,7 @@ func (f *FarmController) createFarmObject(service *corev1.Service, farmName stri
 		Spec:   farmSpec,
 		Status: farmStatus}
 
-	err := f.Reconcile.Create(context.TODO(), farmObject)
-	if err != nil {
-		return nil, err
-	}
-
-	farmObject, err = f.Reconcile.GetFarm(farmName)
+	farmObject, err := f.Farm().Create(farmObject)
 	if err != nil {
 		return nil, err
 	}

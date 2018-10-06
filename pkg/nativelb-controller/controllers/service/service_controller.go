@@ -18,6 +18,7 @@ package service_controller
 
 import (
 	"context"
+	"github.com/k8s-nativelb/pkg/kubecli"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -50,7 +50,7 @@ type ServiceController struct {
 
 func (s *ServiceController) UpdateAllServices() {
 	services := &corev1.ServiceList{}
-	err := s.ReconcileService.List(context.Background(), &client.ListOptions{}, services)
+	err := s.ReconcileService.GetClient().List(context.Background(), &client.ListOptions{}, services)
 	if err != nil {
 		log.Log.Errorf("Fail to get all services error: %v", err)
 	}
@@ -60,10 +60,10 @@ func (s *ServiceController) UpdateAllServices() {
 	}
 }
 
-func NewServiceController(mgr manager.Manager, kubeClient *kubernetes.Clientset, farmController *farm_controller.FarmController) (*ServiceController, error) {
-	reconcileService := newReconciler(mgr, kubeClient, farmController)
+func NewServiceController(nativelbClient kubecli.NativelbClient, farmController *farm_controller.FarmController) (*ServiceController, error) {
+	reconcileService := newReconciler(nativelbClient, farmController)
 
-	controllerInstance, err := newController(mgr, reconcileService)
+	controllerInstance, err := newController(nativelbClient, reconcileService)
 	if err != nil {
 		return nil, err
 	}
@@ -77,18 +77,18 @@ func NewServiceController(mgr manager.Manager, kubeClient *kubernetes.Clientset,
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, kubeClient *kubernetes.Clientset, farmController *farm_controller.FarmController) *ReconcileService {
-	return &ReconcileService{Client: mgr.GetClient(),
-		scheme:         mgr.GetScheme(),
-		Event:          mgr.GetRecorder(v1.EventRecorderName),
+func newReconciler(nativelbClient kubecli.NativelbClient, farmController *farm_controller.FarmController) *ReconcileService {
+	return &ReconcileService{NativelbClient: nativelbClient,
+		scheme:         nativelbClient.GetScheme(),
+		Event:          nativelbClient.GetRecorder(v1.EventRecorderName),
 		FarmController: farmController,
-		kubeClient:     kubeClient}
+		kubeClient:     nativelbClient.GetKubeClient()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func newController(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, error) {
+func newController(nativelbClient kubecli.NativelbClient, r reconcile.Reconciler) (controller.Controller, error) {
 	// Create a new controller
-	c, err := controller.New("service-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("service-controller", nativelbClient.GetManager(), controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ var _ reconcile.Reconciler = &ReconcileService{}
 
 // ReconcileService reconciles a Service object
 type ReconcileService struct {
-	client.Client
+	kubecli.NativelbClient
 	Event          record.EventRecorder
 	FarmController *farm_controller.FarmController
 	scheme         *runtime.Scheme
@@ -120,7 +120,7 @@ type ReconcileService struct {
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the Service instance
 	service := &corev1.Service{}
-	err := r.Get(context.TODO(), request.NamespacedName, service)
+	err := r.GetClient().Get(context.TODO(), request.NamespacedName, service)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.FarmController.DeleteFarm(request.Namespace, request.Name)
@@ -172,7 +172,7 @@ func (r *ReconcileService) reSyncProcess() {
 
 	for range resyncTick {
 		var serviceList corev1.ServiceList
-		err := r.Client.List(context.TODO(), &client.ListOptions{LabelSelector: labelSelector.AsSelector()}, &serviceList)
+		err := r.GetClient().List(context.TODO(), &client.ListOptions{LabelSelector: labelSelector.AsSelector()}, &serviceList)
 		if err != nil {
 			log.Log.Error("reSyncProcess: Fail to get Service list")
 		} else {

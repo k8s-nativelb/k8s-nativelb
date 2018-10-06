@@ -712,6 +712,7 @@
   revision = "e3762e86a74c878ffed47484592986685639c2cd"
 
 [[projects]]
+  branch = "master"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -740,8 +741,7 @@
     "pkg/webhook/admission/types",
     "pkg/webhook/types"
   ]
-  revision = "53fc44b56078cd095b11bd44cfa0288ee4cf718f"
-  version = "v0.1.4"
+  revision = "ddf0390deebe496cb449b1b8540031da9236afa2"
 
 [[projects]]
   branch = "master"
@@ -769,6 +769,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4ff18a763c2f4692c4f90fa02610d1fad80a15a10cf9f7863c71b1e77c11a083"
+  inputs-digest = "00e385867ae9896ed814e4f9511add9904814e40cf9640986f085c1a4554953c"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -18,15 +18,12 @@ package farm_controller
 
 import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
-	"time"
-
+	"github.com/k8s-nativelb/pkg/kubecli"
 	//pb "github.com/k8s-nativelb/pkg/proto"
 	"github.com/k8s-nativelb/pkg/log"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -34,42 +31,42 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 
-	"context"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/cluster"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/server"
 )
 
 type FarmController struct {
+	kubecli.NativelbClient
 	Controller        controller.Controller
 	Reconcile         *Reconcile
 	serverController  *server_controller.ServerController
 	clusterController *cluster_controller.ClusterController
 }
 
-func NewFarmController(mgr manager.Manager, serverController *server_controller.ServerController, clusterController *cluster_controller.ClusterController) (*FarmController, error) {
-	reconcileInstance := newReconciler(mgr)
-	controllerInstance, err := newController(mgr, reconcileInstance)
+func NewFarmController(nativelbClient kubecli.NativelbClient, serverController *server_controller.ServerController, clusterController *cluster_controller.ClusterController) (*FarmController, error) {
+	reconcileInstance := newReconciler(nativelbClient)
+	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {
 		return nil, err
 	}
 
-	farmController := &FarmController{Controller: controllerInstance,
+	farmController := &FarmController{NativelbClient: nativelbClient, Controller: controllerInstance,
 		Reconcile: reconcileInstance, serverController: serverController, clusterController: clusterController}
 
 	return farmController, nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) *Reconcile {
-	return &Reconcile{Client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		Event:  mgr.GetRecorder(v1.EventRecorderName)}
+func newReconciler(nativelbClient kubecli.NativelbClient) *Reconcile {
+	return &Reconcile{NativelbClient: nativelbClient,
+		scheme: nativelbClient.GetScheme(),
+		Event:  nativelbClient.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func newController(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, error) {
+func newController(nativelbClient kubecli.NativelbClient, r reconcile.Reconciler) (controller.Controller, error) {
 	// Create a new controller
-	c, err := controller.New("farm-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("farm-controller", nativelbClient.GetManager(), controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
@@ -85,9 +82,9 @@ func newController(mgr manager.Manager, r reconcile.Reconciler) (controller.Cont
 
 var _ reconcile.Reconciler = &Reconcile{}
 
-// ReconcileProvider reconciles a Provider object
+// Reconcile reconcile object
 type Reconcile struct {
-	client.Client
+	kubecli.NativelbClient
 	Event  record.EventRecorder
 	scheme *runtime.Scheme
 }
@@ -96,9 +93,7 @@ type Reconcile struct {
 // and what is in the Agent.Spec
 // +kubebuilder:rbac:groups=k8s.native-lb,resources=farm,verbs=get;list;watch;create;update;patch;delete
 func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	// Fetch the Provider instance
-	instance := &v1.Farm{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	instance, err := r.Farm().Get(request.NamespacedName.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -111,22 +106,4 @@ func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, erro
 
 	log.Log.V(4).Infof("%+v\n", instance)
 	return reconcile.Result{}, nil
-}
-
-func (r *Reconcile) GetFarm(farmName string) (*v1.Farm, error) {
-	farm := &v1.Farm{}
-	retry := 5
-	var err error
-
-	for i := 0; i < retry; i++ {
-		err = r.Get(context.TODO(), client.ObjectKey{Namespace: v1.ControllerNamespace, Name: farmName}, farm)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, err
-		} else if err == nil {
-			return farm, nil
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	return nil, err
 }
