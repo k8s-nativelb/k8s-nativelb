@@ -45,7 +45,7 @@ message Server {
     string Protocol = 2;
     UDP UDP = 3;
     string Balance = 4;
-    string MaxConnections = 5;
+    int32 MaxConnections = 5;
     string ClientIdleTimeout = 6;
     string BackendIdleTimeout = 7;
     string BackendConnectionTimeout = 8;

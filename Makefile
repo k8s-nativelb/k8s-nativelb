@@ -69,10 +69,12 @@ docker-functest:
 # Build the docker image
 docker-build: docker-test
 	docker build -f./cmd/nativelb-controller/Dockerfile -t ${IMG_CONTROLLER}:${IMAGE_TAG} .
+	docker build -f./cmd/nativelb-agent/Dockerfile -t ${IMG_AGENT}:${IMAGE_TAG} .
 
 # Push the docker image
 docker-push: docker-build
 	docker push ${IMG_CONTROLLER}:${IMAGE_TAG}
+	docker push ${IMG_AGENT}:${IMAGE_TAG}
 
 #publish:
 #	docker build . -t ${IMG}

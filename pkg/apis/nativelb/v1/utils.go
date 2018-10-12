@@ -83,6 +83,10 @@ const (
 	ServiceStatusLabelSyncing = "Syncing"
 	ServiceStatusLabelFailed  = "Failed"
 
+	AgentAliveStatus  = "Alive"
+	AgentDownStatus   = "Down"
+	AgentUnknowStatus = "Unknow"
+
 	NativeLBServerRef = "k8s.nativelb.server"
 	NativeLBFarmRef   = "k8s.nativelb.farm"
 

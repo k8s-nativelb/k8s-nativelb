@@ -46,6 +46,12 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
+- provider: script
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io && make docker-push IMAGE_TAG=$TRAVIS_TAG
+  skip_cleanup: true
+  file:
+  on:
+    tags: true
 
 notifications:
   slack: nativelb:qSryTAFxzsFUgMusY0I06N5R

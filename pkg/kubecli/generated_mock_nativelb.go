@@ -86,6 +86,18 @@ func (mr *MockNativelbClientMockRecorder) Server() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Server", reflect.TypeOf((*MockNativelbClient)(nil).Server))
 }
 
+// Agent mocks base method
+func (m *MockNativelbClient) Agent() AgentInterface {
+	ret := m.ctrl.Call(m, "Agent")
+	ret0, _ := ret[0].(AgentInterface)
+	return ret0
+}
+
+// Agent indicates an expected call of Agent
+func (mr *MockNativelbClientMockRecorder) Agent() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Agent", reflect.TypeOf((*MockNativelbClient)(nil).Agent))
+}
+
 // GetManager mocks base method
 func (m *MockNativelbClient) GetManager() manager.Manager {
 	ret := m.ctrl.Call(m, "GetManager")
@@ -492,4 +504,91 @@ func (m *MockServerInterface) Delete(name string) error {
 // Delete indicates an expected call of Delete
 func (mr *MockServerInterfaceMockRecorder) Delete(name interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockServerInterface)(nil).Delete), name)
+}
+
+// MockAgentInterface is a mock of AgentInterface interface
+type MockAgentInterface struct {
+	ctrl     *gomock.Controller
+	recorder *MockAgentInterfaceMockRecorder
+}
+
+// MockAgentInterfaceMockRecorder is the mock recorder for MockAgentInterface
+type MockAgentInterfaceMockRecorder struct {
+	mock *MockAgentInterface
+}
+
+// NewMockAgentInterface creates a new mock instance
+func NewMockAgentInterface(ctrl *gomock.Controller) *MockAgentInterface {
+	mock := &MockAgentInterface{ctrl: ctrl}
+	mock.recorder = &MockAgentInterfaceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockAgentInterface) EXPECT() *MockAgentInterfaceMockRecorder {
+	return m.recorder
+}
+
+// Get mocks base method
+func (m *MockAgentInterface) Get(name string) (*v1.Agent, error) {
+	ret := m.ctrl.Call(m, "Get", name)
+	ret0, _ := ret[0].(*v1.Agent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get
+func (mr *MockAgentInterfaceMockRecorder) Get(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAgentInterface)(nil).Get), name)
+}
+
+// List mocks base method
+func (m *MockAgentInterface) List(opts *client.ListOptions) (*v1.AgentList, error) {
+	ret := m.ctrl.Call(m, "List", opts)
+	ret0, _ := ret[0].(*v1.AgentList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List
+func (mr *MockAgentInterfaceMockRecorder) List(opts interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockAgentInterface)(nil).List), opts)
+}
+
+// Create mocks base method
+func (m *MockAgentInterface) Create(instance *v1.Agent) (*v1.Agent, error) {
+	ret := m.ctrl.Call(m, "Create", instance)
+	ret0, _ := ret[0].(*v1.Agent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Create indicates an expected call of Create
+func (mr *MockAgentInterfaceMockRecorder) Create(instance interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAgentInterface)(nil).Create), instance)
+}
+
+// Update mocks base method
+func (m *MockAgentInterface) Update(arg0 *v1.Agent) (*v1.Agent, error) {
+	ret := m.ctrl.Call(m, "Update", arg0)
+	ret0, _ := ret[0].(*v1.Agent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Update indicates an expected call of Update
+func (mr *MockAgentInterfaceMockRecorder) Update(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockAgentInterface)(nil).Update), arg0)
+}
+
+// Delete mocks base method
+func (m *MockAgentInterface) Delete(name string) error {
+	ret := m.ctrl.Call(m, "Delete", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockAgentInterfaceMockRecorder) Delete(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAgentInterface)(nil).Delete), name)
 }

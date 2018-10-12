@@ -32,6 +32,7 @@ type NativelbClient interface {
 	Farm() FarmInterface
 	Backend() BackendInterface
 	Server() ServerInterface
+	Agent() AgentInterface
 	GetManager() manager.Manager
 	GetClient() client.Client
 	GetScheme() *runtime.Scheme
@@ -94,5 +95,13 @@ type ServerInterface interface {
 	List(opts *client.ListOptions) (*v1.ServerList, error)
 	Create(instance *v1.Server) (*v1.Server, error)
 	Update(*v1.Server) (*v1.Server, error)
+	Delete(name string) error
+}
+
+type AgentInterface interface {
+	Get(name string) (*v1.Agent, error)
+	List(opts *client.ListOptions) (*v1.AgentList, error)
+	Create(instance *v1.Agent) (*v1.Agent, error)
+	Update(*v1.Agent) (*v1.Agent, error)
 	Delete(name string) error
 }

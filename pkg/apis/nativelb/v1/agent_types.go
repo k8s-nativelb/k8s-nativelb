@@ -23,18 +23,18 @@ import (
 
 // +k8s:openapi-gen=true
 type AgentSpec struct {
-	HostName  string      `json:"hostName"`
-	IPAddress string      `json:"ipAddress"`
-	Status    AgentStatus `json:"status"`
+	HostName  string `json:"hostName"`
+	IPAddress string `json:"ipAddress"`
 }
 
 // +k8s:openapi-gen=true
 type AgentStatus struct {
-	Pid       int           `json:"pid"`
-	StartTime string        `json:"startTime"`
-	Time      string        `json:"time"`
-	Uptime    time.Duration `json:"uptime"`
-	Version   string        `json:"version"`
+	Pid              int           `json:"pid,omitempty"`
+	StartTime        string        `json:"startTime,omitempty"`
+	Time             string        `json:"time,omitempty"`
+	Uptime           time.Duration `json:"uptime,omitempty"`
+	Version          string        `json:"version,omitempty"`
+	ConnectionStatus string        `json:"connectionStatus,omitempty"`
 }
 
 // +genclient
@@ -46,7 +46,7 @@ type Agent struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   AgentSpec   `json:"spec,omitempty"`
+	Spec   AgentSpec   `json:"spec"`
 	Status AgentStatus `json:"status,omitempty"`
 }
 
