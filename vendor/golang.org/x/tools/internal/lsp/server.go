@@ -6,6 +6,8 @@ package lsp
 
 import (
 	"context"
+	"os"
+	"sync"
 
 	"golang.org/x/tools/internal/jsonrpc2"
 	"golang.org/x/tools/internal/lsp/protocol"
@@ -14,7 +16,9 @@ import (
 // RunServer starts an LSP server on the supplied stream, and waits until the
 // stream is closed.
 func RunServer(ctx context.Context, stream jsonrpc2.Stream, opts ...interface{}) error {
-	s := &server{}
+	s := &server{
+		view: newView(),
+	}
 	conn, client := protocol.RunServer(ctx, stream, s, opts...)
 	s.client = client
 	return conn.Wait(ctx)
@@ -22,26 +26,52 @@ func RunServer(ctx context.Context, stream jsonrpc2.Stream, opts ...interface{})
 
 type server struct {
 	client protocol.Client
+
+	initializedMu sync.Mutex
+	initialized   bool // set once the server has received "initialize" request
+
+	*view
 }
 
-func notImplemented(method string) *jsonrpc2.Error {
-	return jsonrpc2.NewErrorf(jsonrpc2.CodeMethodNotFound, "method %q not yet implemented", method)
-}
-
-func (s *server) Initialize(context.Context, *protocol.InitializeParams) (*protocol.InitializeResult, error) {
-	return nil, notImplemented("Initialize")
+func (s *server) Initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
+	s.initializedMu.Lock()
+	defer s.initializedMu.Unlock()
+	if s.initialized {
+		return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeInvalidRequest, "server already initialized")
+	}
+	s.initialized = true
+	return &protocol.InitializeResult{
+		Capabilities: protocol.ServerCapabilities{
+			TextDocumentSync: protocol.TextDocumentSyncOptions{
+				Change:    float64(protocol.Full), // full contents of file sent on each update
+				OpenClose: true,
+			},
+			DocumentFormattingProvider:      true,
+			DocumentRangeFormattingProvider: true,
+		},
+	}, nil
 }
 
 func (s *server) Initialized(context.Context, *protocol.InitializedParams) error {
-	return notImplemented("Initialized")
+	return nil // ignore
 }
 
 func (s *server) Shutdown(context.Context) error {
-	return notImplemented("Shutdown")
+	s.initializedMu.Lock()
+	defer s.initializedMu.Unlock()
+	if !s.initialized {
+		return jsonrpc2.NewErrorf(jsonrpc2.CodeInvalidRequest, "server not initialized")
+	}
+	s.initialized = false
+	return nil
 }
 
-func (s *server) Exit(context.Context) error {
-	return notImplemented("Exit")
+func (s *server) Exit(ctx context.Context) error {
+	if s.initialized {
+		os.Exit(1)
+	}
+	os.Exit(0)
+	return nil
 }
 
 func (s *server) DidChangeWorkspaceFolders(context.Context, *protocol.DidChangeWorkspaceFoldersParams) error {
@@ -64,11 +94,19 @@ func (s *server) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams)
 	return nil, notImplemented("ExecuteCommand")
 }
 
-func (s *server) DidOpen(context.Context, *protocol.DidOpenTextDocumentParams) error {
-	return notImplemented("DidOpen")
+func (s *server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
+	s.cacheActiveFile(params.TextDocument.URI, params.TextDocument.Text)
+	return nil
 }
 
-func (s *server) DidChange(context.Context, *protocol.DidChangeTextDocumentParams) error {
+func (s *server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
+	if len(params.ContentChanges) < 1 {
+		return jsonrpc2.NewErrorf(jsonrpc2.CodeInternalError, "no content changes provided")
+	}
+	// We expect the full content of file, i.e. a single change with no range.
+	if change := params.ContentChanges[0]; change.RangeLength == 0 {
+		s.cacheActiveFile(params.TextDocument.URI, change.Text)
+	}
 	return nil
 }
 
@@ -84,8 +122,9 @@ func (s *server) DidSave(context.Context, *protocol.DidSaveTextDocumentParams) e
 	return notImplemented("DidSave")
 }
 
-func (s *server) DidClose(context.Context, *protocol.DidCloseTextDocumentParams) error {
-	return notImplemented("DidClose")
+func (s *server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
+	s.clearActiveFile(params.TextDocument.URI)
+	return nil
 }
 
 func (s *server) Completion(context.Context, *protocol.CompletionParams) (*protocol.CompletionList, error) {
@@ -156,12 +195,12 @@ func (s *server) ColorPresentation(context.Context, *protocol.ColorPresentationP
 	return nil, notImplemented("ColorPresentation")
 }
 
-func (s *server) Formatting(context.Context, *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, notImplemented("Formatting")
+func (s *server) Formatting(ctx context.Context, params *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
+	return s.format(params.TextDocument.URI, nil)
 }
 
-func (s *server) RangeFormatting(context.Context, *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, notImplemented("RangeFormatting")
+func (s *server) RangeFormatting(ctx context.Context, params *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
+	return s.format(params.TextDocument.URI, &params.Range)
 }
 
 func (s *server) OnTypeFormatting(context.Context, *protocol.DocumentOnTypeFormattingParams) ([]protocol.TextEdit, error) {
@@ -174,4 +213,8 @@ func (s *server) Rename(context.Context, *protocol.RenameParams) ([]protocol.Wor
 
 func (s *server) FoldingRanges(context.Context, *protocol.FoldingRangeRequestParam) ([]protocol.FoldingRange, error) {
 	return nil, notImplemented("FoldingRanges")
+}
+
+func notImplemented(method string) *jsonrpc2.Error {
+	return jsonrpc2.NewErrorf(jsonrpc2.CodeMethodNotFound, "method %q not yet implemented", method)
 }

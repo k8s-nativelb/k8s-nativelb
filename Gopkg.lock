@@ -4,8 +4,8 @@
 [[projects]]
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
-  revision = "97efc2c9ffd9fe8ef47f7f3203dc60bbca547374"
-  version = "v0.28.0"
+  revision = "dfffe386c33fb24c34ee501e5723df5b97b98514"
+  version = "v0.30.0"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -60,8 +60,8 @@
 [[projects]]
   name = "github.com/gobuffalo/envy"
   packages = ["."]
-  revision = "3c96536452167a705ca5a70b831d3810e1e10452"
-  version = "v1.6.4"
+  revision = "047ecc927cd0b7d27bab83eb948e120fb7d1ea68"
+  version = "v1.6.5"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -83,6 +83,12 @@
   name = "github.com/golang/groupcache"
   packages = ["lru"]
   revision = "6f2cf27854a4a29e3811b0371547be335d411b8b"
+
+[[projects]]
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -187,8 +193,8 @@
 [[projects]]
   name = "github.com/markbates/inflect"
   packages = ["."]
-  revision = "dd7de90c06bca70f18136e59dec2270c19a401e7"
-  version = "v1.0.0"
+  revision = "28bf78dadb0f64748ff13a0b6547e4972a5cea64"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
@@ -296,8 +302,8 @@
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "9a97c102cda95a86cec2345a6f09f55a939babf5"
-  version = "v1.0.2"
+  revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
+  version = "v1.0.3"
 
 [[projects]]
   name = "github.com/vishvananda/netlink"
@@ -343,7 +349,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "0e37d006457bf46f9e6692014ba72ef82c33022c"
+  revision = "7c1a557ab941a71c619514f229f0b27ccb0c27cf"
 
 [[projects]]
   branch = "master"
@@ -361,7 +367,7 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "4dfa2610cdf3b287375bbba5b8f2a14d3b01d8de"
+  revision = "49bb7cea24b1df9410e1712aa6433dae904ff66a"
 
 [[projects]]
   branch = "master"
@@ -373,7 +379,7 @@
     "jws",
     "jwt"
   ]
-  revision = "d2e6202438beef2727060aa7cabdd924d92ebfd9"
+  revision = "c57b0facaced709681d9f90397429b9430a74754"
 
 [[projects]]
   branch = "master"
@@ -382,7 +388,7 @@
     "unix",
     "windows"
   ]
-  revision = "dad3d9fb7b6e83d0f9ac8f54670f6334c3a287b4"
+  revision = "fa43e7bc11baaae89f3f902b2b4d832b68234844"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -431,7 +437,7 @@
     "imports",
     "internal/fastwalk"
   ]
-  revision = "308f0c7c09fc9a2cba898a7445d92edc31bf2a85"
+  revision = "87312bc3edd028a31d662e145d02b38790f4c716"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -454,7 +460,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "0e822944c569bf5c9afd034adaa56208bd2906ac"
+  revision = "af9cb2a35e7f169ec875002c1829c9b315cddc04"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -689,7 +695,7 @@
     "cmd/deepcopy-gen/args",
     "pkg/util"
   ]
-  revision = "731fd61190482fe9e4b67e30ccb8596966f394dd"
+  revision = "6a2840f5b572addf60da1f63db87e5f03dadd95e"
 
 [[projects]]
   branch = "master"
@@ -709,7 +715,7 @@
   branch = "master"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
-  revision = "e3762e86a74c878ffed47484592986685639c2cd"
+  revision = "9dfdf9be683f61f82cda12362c44c784e0778b56"
 
 [[projects]]
   branch = "master"
@@ -755,7 +761,7 @@
     "pkg/internal/codegen/parse",
     "pkg/util"
   ]
-  revision = "38b2f3f497ed6b8ea5d2844ecf00c28ac4b5c2c4"
+  revision = "6dce81405f4641fbd437806fb7f5f5e6d353edaa"
 
 [[projects]]
   branch = "master"
@@ -769,6 +775,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "00e385867ae9896ed814e4f9511add9904814e40cf9640986f085c1a4554953c"
+  inputs-digest = "b6c31eb577d7e3a941bfafd5b52b456c71106ce516d4fcac4edb1df29e524462"
   solver-name = "gps-cdcl"
   solver-version = 1
