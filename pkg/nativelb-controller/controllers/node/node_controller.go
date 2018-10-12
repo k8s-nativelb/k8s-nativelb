@@ -18,6 +18,7 @@ package node
 
 import (
 	"context"
+	"github.com/k8s-nativelb/pkg/kubecli"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,10 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -45,10 +44,10 @@ type NodeController struct {
 	ReconcileNode reconcile.Reconciler
 }
 
-func NewNodeController(mgr manager.Manager, kubeClient *kubernetes.Clientset, serviceController *service_controller.ServiceController) (*NodeController, error) {
-	reconcileNode := newReconciler(mgr, kubeClient, serviceController)
+func NewNodeController(nativelbClient kubecli.NativelbClient, serviceController *service_controller.ServiceController) (*NodeController, error) {
+	reconcileNode := newReconciler(nativelbClient, serviceController)
 
-	controllerInstance, err := newNodeControllerController(mgr, reconcileNode)
+	controllerInstance, err := newNodeControllerController(nativelbClient, reconcileNode)
 	if err != nil {
 		return nil, err
 	}
@@ -80,20 +79,19 @@ func loadNodes(kubeClient *kubernetes.Clientset) map[string]string {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, kubeClient *kubernetes.Clientset, serviceController *service_controller.ServiceController) *ReconcileNode {
+func newReconciler(nativelbClient kubecli.NativelbClient, serviceController *service_controller.ServiceController) *ReconcileNode {
 
-	return &ReconcileNode{Client: mgr.GetClient(),
-		kubeClient:        kubeClient,
+	return &ReconcileNode{NativelbClient: nativelbClient,
 		serviceController: serviceController,
-		scheme:            mgr.GetScheme(),
-		Event:             mgr.GetRecorder(v1.EventRecorderName),
-		NodeMap:           loadNodes(kubeClient)}
+		scheme:            nativelbClient.GetScheme(),
+		Event:             nativelbClient.GetRecorder(v1.EventRecorderName),
+		NodeMap:           loadNodes(nativelbClient.GetKubeClient())}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func newNodeControllerController(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, error) {
+func newNodeControllerController(nativelbClient kubecli.NativelbClient, r reconcile.Reconciler) (controller.Controller, error) {
 	// Create a new controller
-	c, err := controller.New("node-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("node-controller", nativelbClient.GetManager(), controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
@@ -111,8 +109,7 @@ var _ reconcile.Reconciler = &ReconcileNode{}
 
 // ReconcileNode reconciles a Node object
 type ReconcileNode struct {
-	client.Client
-	kubeClient        *kubernetes.Clientset
+	kubecli.NativelbClient
 	Event             record.EventRecorder
 	serviceController *service_controller.ServiceController
 	scheme            *runtime.Scheme
@@ -123,11 +120,12 @@ type ReconcileNode struct {
 // and what is in the Node.Spec
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	nativeClient := r.GetClient()
 	// Fetch the Node instance
 	nodeInstance := &corev1.Node{}
-	err := r.Get(context.TODO(), request.NamespacedName, nodeInstance)
+	err := nativeClient.Get(context.TODO(), request.NamespacedName, nodeInstance)
 	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Errorf("Fail to reconcile node error message: %s", err.Error())
+		log.Log.Errorf("Fail to reconcile node error message: %v", err)
 
 		return reconcile.Result{}, err
 	}
@@ -139,24 +137,25 @@ func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, 
 }
 
 func (r *ReconcileNode) needToUpdateServices() bool {
-	nodeList, err := r.kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	kubeClient := r.GetKubeClient()
+	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		log.Log.Error("fail to get node list")
 	}
 
 	if len(nodeList.Items) != len(r.NodeMap) {
-		r.NodeMap = loadNodes(r.kubeClient)
+		r.NodeMap = loadNodes(kubeClient)
 		return true
 	}
 
 	for _, nodeInstance := range nodeList.Items {
 		if value, ok := r.NodeMap[nodeInstance.Name]; !ok {
-			r.NodeMap = loadNodes(r.kubeClient)
+			r.NodeMap = loadNodes(kubeClient)
 			return true
 		} else {
 			for _, IpAddr := range nodeInstance.Status.Addresses {
 				if IpAddr.Type == "InternalIP" && value != IpAddr.Address {
-					r.NodeMap = loadNodes(r.kubeClient)
+					r.NodeMap = loadNodes(kubeClient)
 					return true
 				}
 			}

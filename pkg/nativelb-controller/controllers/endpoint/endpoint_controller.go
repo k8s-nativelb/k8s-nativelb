@@ -18,6 +18,7 @@ package endpoint
 
 import (
 	"context"
+	"github.com/k8s-nativelb/pkg/kubecli"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,11 +27,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
@@ -43,10 +42,10 @@ type EndPointController struct {
 	ReconcileNode reconcile.Reconciler
 }
 
-func NewEndPointController(mgr manager.Manager, kubeClient *kubernetes.Clientset, serviceController *service_controller.ServiceController) (*EndPointController, error) {
-	reconcileEndPoint := newReconciler(mgr, kubeClient, serviceController)
+func NewEndPointController(nativelbClient kubecli.NativelbClient, serviceController *service_controller.ServiceController) (*EndPointController, error) {
+	reconcileEndPoint := newReconciler(nativelbClient, serviceController)
 
-	controllerInstance, err := newEndPointController(mgr, reconcileEndPoint)
+	controllerInstance, err := newEndPointController(nativelbClient, reconcileEndPoint)
 	if err != nil {
 		return nil, err
 	}
@@ -58,18 +57,17 @@ func NewEndPointController(mgr manager.Manager, kubeClient *kubernetes.Clientset
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, kubeClient *kubernetes.Clientset, serviceController *service_controller.ServiceController) *ReconcileEndPoint {
-	return &ReconcileEndPoint{Client: mgr.GetClient(),
-		kubeClient:        kubeClient,
+func newReconciler(nativelbClient kubecli.NativelbClient, serviceController *service_controller.ServiceController) *ReconcileEndPoint {
+	return &ReconcileEndPoint{NativelbClient: nativelbClient,
 		serviceController: serviceController,
-		scheme:            mgr.GetScheme(),
-		Event:             mgr.GetRecorder(v1.EventRecorderName)}
+		scheme:            nativelbClient.GetScheme(),
+		Event:             nativelbClient.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func newEndPointController(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, error) {
+func newEndPointController(nativelbClient kubecli.NativelbClient, r reconcile.Reconciler) (controller.Controller, error) {
 	// Create a new controller
-	c, err := controller.New("endpoint-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("endpoint-controller", nativelbClient.GetManager(), controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +85,7 @@ var _ reconcile.Reconciler = &ReconcileEndPoint{}
 
 // ReconcileNode reconciles a Endpoints object
 type ReconcileEndPoint struct {
-	client.Client
-	kubeClient        *kubernetes.Clientset
+	kubecli.NativelbClient
 	Event             record.EventRecorder
 	serviceController *service_controller.ServiceController
 	scheme            *runtime.Scheme
@@ -98,22 +95,23 @@ type ReconcileEndPoint struct {
 // and what is in the Endpoints.Spec
 // +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch
 func (r *ReconcileEndPoint) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	nativeClient := r.GetClient()
 	// Fetch the Node instance
 	endpoint := &corev1.Endpoints{}
-	err := r.Get(context.TODO(), request.NamespacedName, endpoint)
+	err := nativeClient.Get(context.TODO(), request.NamespacedName, endpoint)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			return reconcile.Result{}, nil
 		}
 
-		log.Log.Errorf("Fail to reconcile endpoint error message: %s", err.Error())
+		log.Log.Errorf("Fail to reconcile endpoint error message: %v", err)
 		return reconcile.Result{}, err
 	}
 
 	if len(endpoint.Subsets) > 0 {
 		service := &corev1.Service{}
-		err := r.Get(context.Background(), client.ObjectKey{Namespace: endpoint.Namespace, Name: endpoint.Name}, service)
+		err := nativeClient.Get(context.TODO(), client.ObjectKey{Namespace: endpoint.Namespace, Name: endpoint.Name}, service)
 		if err == nil && service.Spec.Type == "LoadBalancer" {
 			r.serviceController.ReconcileService.UpdateEndpoints(service, endpoint)
 		}

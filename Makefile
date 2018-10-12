@@ -5,10 +5,10 @@ IMG_AGENT ?= quay.io/k8s-nativelb/nativelb-agent
 IMAGE_TAG ?= latest
 
 
-all: docker-test docker-build deploy
+all: docker-test
 
 # Run tests
-test: generate fmt vet #manifests
+test: generate fmt vet
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
@@ -52,6 +52,8 @@ vet:
 
 # Generate code
 generate:
+	go get github.com/golang/mock/gomock
+	go install github.com/golang/mock/mockgen
 	go generate ./pkg/... ./cmd/...
 
 functest:

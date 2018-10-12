@@ -18,21 +18,18 @@ package agent_controller
 
 import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
+	"github.com/k8s-nativelb/pkg/kubecli"
 	"github.com/k8s-nativelb/pkg/log"
 	pb "github.com/k8s-nativelb/pkg/proto"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-
-	"context"
 )
 
 type AgentController struct {
@@ -41,9 +38,9 @@ type AgentController struct {
 	AgentStatusChannel chan pb.AgentStatus
 }
 
-func NewAgentController(mgr manager.Manager, AgentStatusChannel chan pb.AgentStatus) (*AgentController, error) {
-	reconcileInstance := newReconciler(mgr)
-	controllerInstance, err := newController(mgr, reconcileInstance)
+func NewAgentController(nativelbClient kubecli.NativelbClient, AgentStatusChannel chan pb.AgentStatus) (*AgentController, error) {
+	reconcileInstance := newReconciler(nativelbClient)
+	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {
 		return nil, err
 	}
@@ -55,16 +52,16 @@ func NewAgentController(mgr manager.Manager, AgentStatusChannel chan pb.AgentSta
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) *Reconcile {
-	return &Reconcile{Client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		Event:  mgr.GetRecorder(v1.EventRecorderName)}
+func newReconciler(nativelbClient kubecli.NativelbClient) *Reconcile {
+	return &Reconcile{NativelbClient: nativelbClient,
+		scheme: nativelbClient.GetScheme(),
+		Event:  nativelbClient.GetRecorder(v1.EventRecorderName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func newController(mgr manager.Manager, r reconcile.Reconciler) (controller.Controller, error) {
+func newController(nativelbClient kubecli.NativelbClient, r reconcile.Reconciler) (controller.Controller, error) {
 	// Create a new controller
-	c, err := controller.New("agent-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("agent-controller", nativelbClient.GetManager(), controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
@@ -80,9 +77,9 @@ func newController(mgr manager.Manager, r reconcile.Reconciler) (controller.Cont
 
 var _ reconcile.Reconciler = &Reconcile{}
 
-// ReconcileProvider reconciles a Provider object
+// Reconcile reconcile object
 type Reconcile struct {
-	client.Client
+	kubecli.NativelbClient
 	Event  record.EventRecorder
 	scheme *runtime.Scheme
 }
@@ -91,9 +88,7 @@ type Reconcile struct {
 // and what is in the Agent.Spec
 // +kubebuilder:rbac:groups=k8s.native-lb,resources=agent,verbs=get;list;watch;create;update;patch;delete
 func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	// Fetch the Provider instance
-	instance := &v1.Agent{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	instance, err := r.Farm().Get(request.NamespacedName.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
