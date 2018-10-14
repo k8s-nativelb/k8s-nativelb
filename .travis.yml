@@ -46,3 +46,6 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
+
+notifications:
+  slack: nativelb:qSryTAFxzsFUgMusY0I06N5R
