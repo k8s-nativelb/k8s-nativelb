@@ -1,10 +1,25 @@
+/*
+Copyright 2018 Sebastian Sch.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package nativelb_agent
 
 import (
 	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/nativelb-agent/keepalived"
 	"github.com/k8s-nativelb/pkg/nativelb-agent/loadbalancer"
-	"github.com/k8s-nativelb/proto"
+	. "github.com/k8s-nativelb/pkg/proto"
 
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
@@ -25,13 +40,13 @@ type NativelbAgent struct {
 	syncInterface          string
 	loadBalancerController *loadbalancer.LoadBalancer
 	keepalivedController   *keepalived.Keepalived
-	clientStream           proto.NativeLoadBalancerAgent_ConnectClient
-	agentData              *proto.Agent
+	clientStream           NativeLoadBalancerAgent_ConnectClient
+	agentData              *Agent
 	stopChan               <-chan struct{}
 }
 
 type RecvChannelStruct struct {
-	command *proto.Command
+	command *Command
 	err     error
 }
 
@@ -46,7 +61,7 @@ func NewNativeAgent(controllerUrl, clusterName, controlInterface, dataInterface,
 		loadBalancerController: loadbalancer.NewLoadBalancer(), agentData: agentData, dataInterface: dataInterface, syncInterface: syncInterface}, nil
 }
 
-func createAgentData(clusterName, controlInterface string) (*proto.Agent, error) {
+func createAgentData(clusterName, controlInterface string) (*Agent, error) {
 	controlInterfaceLink, err := netlink.LinkByName(controlInterface)
 	if err != nil {
 		return nil, err
@@ -66,7 +81,7 @@ func createAgentData(clusterName, controlInterface string) (*proto.Agent, error)
 		return nil, fmt.Errorf("Fail to get hostname error: %v", err)
 	}
 
-	return &proto.Agent{Cluster: clusterName, HostName: hostName, IPAddress: ipAddr[0].IP.String()}, nil
+	return &Agent{Cluster: clusterName, HostName: hostName, IPAddress: ipAddr[0].IP.String()}, nil
 }
 
 func (n *NativelbAgent) connectToController() {
@@ -76,7 +91,7 @@ func (n *NativelbAgent) connectToController() {
 		log.Log.V(2).Infof("Trying to connect to %s", n.controllerUrl)
 		conn, err := grpc.Dial(n.controllerUrl, opts...)
 		if err == nil {
-			grpcClient := proto.NewNativeLoadBalancerAgentClient(conn)
+			grpcClient := NewNativeLoadBalancerAgentClient(conn)
 			connectClient, err := grpcClient.Connect(context.Background(), n.agentData)
 			if err == nil {
 				n.clientStream = connectClient
@@ -91,7 +106,7 @@ func (n *NativelbAgent) connectToController() {
 	}
 }
 
-func receiveDataFromController(recvStream proto.NativeLoadBalancerAgent_ConnectClient, recvChannel chan RecvChannelStruct) {
+func receiveDataFromController(recvStream NativeLoadBalancerAgent_ConnectClient, recvChannel chan RecvChannelStruct) {
 	for {
 		command, err := recvStream.Recv()
 		recvChannel <- RecvChannelStruct{command: command, err: err}
@@ -115,8 +130,23 @@ func (n *NativelbAgent) connectionLoop() error {
 				log.Log.V(2).Errorf("Fail to receive message from controller error: %v", recvStruct.err)
 				return recvStruct.err
 			}
-			// TODO Work with the command receive
-			log.Log.V(2).Infof("Get command from server %+v", recvStruct.command)
+			var err error
+			switch recvStruct.command.Command {
+			case AgentKeepAlive:
+				log.Log.V(2).Info("Get keepalive from server")
+			case AgentCreateCommand:
+				err = n.CreateServers(recvStruct.command.Servers)
+			case AgentUpdateCommand:
+				err = n.UpdateServers(recvStruct.command.Servers)
+			case AgentDeleteCommand:
+				err = n.DeleteServers(recvStruct.command.Servers)
+			default:
+				err = fmt.Errorf("Command not found command: %s", recvStruct.command.Command)
+			}
+
+			if err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -127,7 +157,7 @@ func (n *NativelbAgent) StartAgent() {
 
 		err := n.connectionLoop()
 		if err == nil {
-			return
+			n.clientStream.CloseSend()
 		}
 	}
 }

@@ -66,7 +66,7 @@ func NewNativeLBManager() *NativeLBManager {
 	}
 
 	stopChan := signals.SetupSignalHandler()
-	nativeLBGrpcServer := server.NewNativeLBGrpcServer(mgr.GetClient(), stopChan)
+	nativeLBGrpcServer := server.NewNativeLBGrpcServer(nativelbCli, stopChan)
 	nativeLBManager := &NativeLBManager{nativelbCli,
 		nativeLBGrpcServer,
 		nil,

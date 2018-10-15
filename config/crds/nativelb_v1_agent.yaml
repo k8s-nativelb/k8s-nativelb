@@ -26,34 +26,14 @@ spec:
               type: string
             ipAddress:
               type: string
-            status:
-              properties:
-                pid:
-                  format: int64
-                  type: integer
-                startTime:
-                  type: string
-                time:
-                  type: string
-                uptime:
-                  format: int64
-                  type: integer
-                version:
-                  type: string
-              required:
-              - pid
-              - startTime
-              - time
-              - uptime
-              - version
-              type: object
           required:
           - hostName
           - ipAddress
-          - status
           type: object
         status:
           properties:
+            connectionStatus:
+              type: string
             pid:
               format: int64
               type: integer
@@ -66,13 +46,9 @@ spec:
               type: integer
             version:
               type: string
-          required:
-          - pid
-          - startTime
-          - time
-          - uptime
-          - version
           type: object
+      required:
+      - spec
   version: v1
 status:
   acceptedNames:

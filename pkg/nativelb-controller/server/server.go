@@ -1,8 +1,23 @@
+/*
+Copyright 2018 Sebastian Sch.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package server
 
 import (
 	"fmt"
-	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
+	"github.com/k8s-nativelb/pkg/kubecli"
 	"net"
 	"time"
 
@@ -11,7 +26,6 @@ import (
 
 	"context"
 	pb "github.com/k8s-nativelb/pkg/proto"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type RunTimeAgent struct {
@@ -20,9 +34,9 @@ type RunTimeAgent struct {
 }
 
 type NativeLBGrpcServer struct {
-	client     client.Client
-	GrpcServer *grpc.Server
-	Cluster    map[string][]*RunTimeAgent
+	nativelbClient kubecli.NativelbClient
+	GrpcServer     *grpc.Server
+	Cluster        map[string][]*RunTimeAgent
 
 	Connection         chan pb.Agent
 	AgentStatusChannel chan pb.AgentStatus
@@ -31,8 +45,8 @@ type NativeLBGrpcServer struct {
 	stopChan           <-chan struct{}
 }
 
-func NewNativeLBGrpcServer(client client.Client, stopChan <-chan struct{}) *NativeLBGrpcServer {
-	return &NativeLBGrpcServer{client: client, GrpcServer: grpc.NewServer(), Cluster: make(map[string][]*RunTimeAgent),
+func NewNativeLBGrpcServer(nativelbClient kubecli.NativelbClient, stopChan <-chan struct{}) *NativeLBGrpcServer {
+	return &NativeLBGrpcServer{nativelbClient: nativelbClient, GrpcServer: grpc.NewServer(), Cluster: make(map[string][]*RunTimeAgent),
 		AgentStatusChannel: make(chan pb.AgentStatus, 10),
 		ServerStats:        make(chan pb.ServerStats, 10),
 		NewAgentChannel:    make(chan pb.Agent, 10), stopChan: stopChan}
@@ -60,8 +74,7 @@ func (n *NativeLBGrpcServer) StopServer() {
 
 func (n *NativeLBGrpcServer) Connect(agent *pb.Agent, con pb.NativeLoadBalancerAgent_ConnectServer) error {
 	runTimeAgent := &RunTimeAgent{Data: agent, connection: con}
-	clusterObject := &v1.Cluster{}
-	err := n.client.Get(context.Background(), client.ObjectKey{Name: agent.Cluster, Namespace: v1.ControllerNamespace}, clusterObject)
+	_, err := n.nativelbClient.Cluster().Get(agent.Cluster)
 	if err != nil {
 		log.Log.V(2).Errorf("Receive a connection message from %+v but fail to find the cluster with error: %v", agent, err)
 		return fmt.Errorf("Fail to find the cluster name %s", agent.Cluster)
@@ -74,7 +87,7 @@ func (n *NativeLBGrpcServer) Connect(agent *pb.Agent, con pb.NativeLoadBalancerA
 
 	n.Cluster[agent.Cluster] = append(n.Cluster[agent.Cluster], runTimeAgent)
 
-	command := &pb.Command{Command: "KEEP_ALIVE"}
+	command := &pb.Command{Command: "keepalive"}
 
 	for {
 		err := con.Send(command)
@@ -88,9 +101,11 @@ func (n *NativeLBGrpcServer) Connect(agent *pb.Agent, con pb.NativeLoadBalancerA
 }
 
 func (n *NativeLBGrpcServer) UpdateAgentStatus(context context.Context, agentStatus *pb.AgentStatus) (*pb.Result, error) {
+	log.Log.Infof("Get agent update status message from %s", agentStatus.Name)
 	return &pb.Result{}, nil
 }
 
 func (n *NativeLBGrpcServer) UpdateServerStats(context context.Context, serverStats *pb.ServerStats) (*pb.Result, error) {
+	log.Log.Infof("Get server update status message from %s", serverStats.Name)
 	return &pb.Result{}, nil
 }

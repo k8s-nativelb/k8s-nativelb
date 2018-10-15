@@ -13,11 +13,24 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package proto
+package nativelb_agent
 
-const (
-	AgentCreateCommand = "create"
-	AgentUpdateCommand = "update"
-	AgentDeleteCommand = "delete"
-	AgentKeepAlive     = "keepalive"
+import (
+	"github.com/k8s-nativelb/pkg/log"
+	. "github.com/k8s-nativelb/pkg/proto"
 )
+
+func (n *NativelbAgent) CreateServers(servers []*Server) error {
+	log.Log.Infof("Get Create command with servers %+v", servers)
+	return nil
+}
+
+func (n *NativelbAgent) UpdateServers(servers []*Server) error {
+	log.Log.Infof("Get Update command with servers %+v", servers)
+	return nil
+}
+
+func (n *NativelbAgent) DeleteServers(servers []*Server) error {
+	log.Log.Infof("Get Delete command with servers %+v", servers)
+	return nil
+}
