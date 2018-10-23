@@ -34,6 +34,7 @@ func (f *FarmController) CreateOrUpdateFarm(service *corev1.Service, endpoints *
 		service.Namespace,
 		service.Name)
 
+	needToCreate := false
 	farm, err := f.Farm().Get(farmName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -46,19 +47,58 @@ func (f *FarmController) CreateOrUpdateFarm(service *corev1.Service, endpoints *
 			f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to create farm error: %v", err))
 			return true
 		}
+		needToCreate = true
 	}
 
-	needToUpdate, err := f.needToUpdate(farm, service)
+	needToUpdate, err := f.needToUpdate(farm, service, needToCreate)
 	if err != nil {
 		return true
 	}
 
 	if needToUpdate {
-		f.updateFarm(farm, service, clusterInstance)
+		f.createUpdateFarm(farm, service, clusterInstance, needToCreate)
 		return true
 	}
 
 	return f.needToAddIngressIpFromFarm(service, farm)
+}
+
+func (f *FarmController) needToUpdate(farm *v1.Farm, service *corev1.Service, needToCreate bool) (bool, error) {
+	clusterInstance, err := f.getCluster(service)
+	if err != nil {
+		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to get provider for service %s in namespace %s error: %v", service.Name, service.Namespace, err))
+		return false, err
+	}
+
+	if needToCreate {
+		return true, nil
+	}
+
+	if farm.Spec.Cluster != clusterInstance.Name {
+		return true, nil
+	}
+
+	if value, ok := service.Labels[v1.ServiceStatusLabel]; !ok {
+		return true, nil
+	} else if value == v1.ServiceStatusLabelFailed {
+		return true, nil
+	}
+
+	if !reflect.DeepEqual(farm.Spec.Ports, service.Spec.Ports) {
+		return true, nil
+	}
+
+	nodeList, err := f.getNodeList(service, clusterInstance)
+	if err != nil {
+		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to get node lists for service %s in namespace %s error: %v", service.Name, service.Namespace, err))
+		return false, err
+	}
+
+	if !reflect.DeepEqual(farm.Status.NodeList, nodeList) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (f *FarmController) needToAddIngressIpFromFarm(service *corev1.Service, farm *v1.Farm) bool {
@@ -77,69 +117,7 @@ func (f *FarmController) needToAddIngressIpFromFarm(service *corev1.Service, far
 	return false
 }
 
-//func (f *FarmController) createFarm(service *corev1.Service) {
-//	farmName := fmt.Sprintf("%s-%s", service.Namespace, service.Name)
-//	log.Log.V(2).Infof("Start creating a farm object for service %s on namespace %s with farm name %s",service.Name,service.Namespace,farmName)
-//	clusterInstance, err := f.getCluster(service)
-//	if err != nil {
-//		log.Log.V(2).Errorf("Fail to find cluster for service %s on namespace %s", service.Name, service.Namespace)
-//		f.MarkServiceStatusFail(service, "Fail to find a clusterfor the service")
-//		return
-//	}
-//
-//	farm, err := f.createFarmObject(service, farmName, clusterInstance)
-//	if err != nil {
-//		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to create farm error: %v", err))
-//		return
-//	}
-//
-//	if len(farm.Status.NodeList) == 0 {
-//		log.Log.V(2).Infof("No servers found for service %s on namespace %s",service.Name,service.Namespace)
-//		return
-//	}
-//
-//	log.Log.V(2).Infof("Start creating a farm on cluster agents for service %s on namespace %s with farm name %s",service.Name,service.Namespace,farmName)
-//	farmIpAddress, err := f.clusterController.CreateFarm(farm,clusterInstance)
-//	if err != nil {
-//		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to create farm on cluster error: %s", err.Error()))
-//		return
-//	}
-//	log.Log.V(2).Infof("Done creating a farm on cluster agents for service %s on namespace %s with farm name %s",service.Name,service.Namespace,farmName)
-//	errCreateFarm := f.Reconcile.Client.Create(context.Background(), farm)
-//	if errCreateFarm != nil {
-//		log.Log.V(2).Errorf("Fail to create farm error message: %s", errCreateFarm.Error())
-//		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to create farm error message: %s", errCreateFarm.Error()))
-//	}
-//
-//	if err != nil {
-//		log.Log.V(2).Errorf("Fail to create farm on cluster %s error message: %s", farm.Spec.Cluster, errCreateFarm.Error())
-//		f.FarmUpdateFailStatus(farm, "Warning", "FarmCreatedFail", err.Error())
-//	}
-//
-//	f.FarmUpdateSuccessStatus(farm, farmIpAddress, "Normal", "FarmCreated", fmt.Sprintf("Farm created on cluster %s", farm.Spec.Cluster))
-//	err = f.Reconcile.Client.Update(context.Background(), farm)
-//	if err != nil {
-//		log.Log.V(2).Errorf("Fail to update farm status error message: %s", errCreateFarm.Error())
-//		return
-//	}
-//
-//	f.updateServiceIpAddress(service, farmIpAddress)
-//	log.Log.Infof("Successfully created the farm %s for service %s on namespace %s on cluster %s", farm.Name, service.Name,service.Namespace, clusterInstance.Name)
-//}
-
-func (f *FarmController) MarkServiceStatusFail(service *corev1.Service, message string) {
-	f.Reconcile.Event.Event(service.DeepCopyObject(), "Warning", "FarmCreatedFail", message)
-	if service.Labels == nil {
-		service.Labels = make(map[string]string)
-	}
-	service.Labels[v1.ServiceStatusLabel] = v1.ServiceStatusLabelFailed
-}
-
-func (f *FarmController) UpdateSuccessEventOnService(service *corev1.Service, message string) {
-	f.Reconcile.Event.Event(service.DeepCopyObject(), "Normal", "FarmCreatedSuccess", message)
-}
-
-func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clusterInstance *v1.Cluster) {
+func (f *FarmController) createUpdateFarm(farm *v1.Farm, service *corev1.Service, clusterInstance *v1.Cluster, needToCreate bool) {
 	// TODO: Need to change this!!!!
 	if farm.Spec.Cluster != clusterInstance.Name {
 		err := f.clusterController.DeleteFarm(farm, clusterInstance)
@@ -179,10 +157,20 @@ func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clus
 	}
 
 	farm.Status.NodeList = nodelist
-	farmIpAddress, err := f.clusterController.UpdateFarm(farm, clusterInstance)
-	if err != nil {
-		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to update farm on cluster error: %s", err.Error()))
-		return
+	var farmIpAddress string
+
+	if needToCreate {
+		farmIpAddress, err = f.clusterController.CreateFarm(farm, clusterInstance)
+		if err != nil {
+			f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to create farm on cluster error: %s", err.Error()))
+			return
+		}
+	} else {
+		farmIpAddress, err = f.clusterController.UpdateFarm(farm, clusterInstance)
+		if err != nil {
+			f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to update farm on cluster error: %s", err.Error()))
+			return
+		}
 	}
 
 	farm, errCreateFarm := f.Farm().Update(farm)
@@ -204,6 +192,7 @@ func (f *FarmController) updateFarm(farm *v1.Farm, service *corev1.Service, clus
 	}
 
 	f.updateServiceIpAddress(service, farmIpAddress)
+	f.UpdateSuccessEventOnService(service, "Successfully create/update service on provider")
 	log.Log.Infof("Successfully updated the farm %s for service %s on cluster %s", farm.Name, service.Name, clusterInstance.Name)
 }
 
@@ -242,82 +231,6 @@ func (f *FarmController) DeleteFarm(serviceNamespace, serviceName string) {
 	if err != nil {
 		log.Log.V(2).Errorf("Fail to delete farm %s", farm.Name)
 	}
-}
-
-func (f *FarmController) updateServiceIpAddress(service *corev1.Service, farmIpAddress string) {
-	ingressList := []corev1.LoadBalancerIngress{}
-
-	for _, externalIP := range service.Spec.ExternalIPs {
-		ingressList = append(ingressList, corev1.LoadBalancerIngress{IP: externalIP})
-	}
-
-	ingressList = append(ingressList, corev1.LoadBalancerIngress{IP: farmIpAddress})
-	service.Status.LoadBalancer.Ingress = ingressList
-
-	if service.Labels == nil {
-		service.Labels = make(map[string]string)
-	}
-
-	service.Labels[v1.ServiceStatusLabel] = v1.ServiceStatusLabelSynced
-}
-
-func (f *FarmController) updateLabels(farm *v1.Farm, status string) {
-	if farm.Labels == nil {
-		farm.Labels = make(map[string]string)
-	}
-	farm.Labels[v1.FarmStatusLabel] = status
-	farm.Status.ConnectionStatus = status
-	farm.Status.LastUpdate = metav1.NewTime(time.Now())
-}
-
-func (f *FarmController) FarmUpdateFailStatus(farm *v1.Farm, eventType, reason, message string) {
-	f.Reconcile.Event.Event(farm.DeepCopyObject(), eventType, reason, message)
-	f.updateLabels(farm, v1.FarmStatusLabelFailed)
-}
-
-func (f *FarmController) FarmUpdateFailDeleteStatus(farm *v1.Farm, eventType, reason, message string) {
-	f.Reconcile.Event.Event(farm.DeepCopyObject(), eventType, reason, message)
-	f.updateLabels(farm, v1.FarmStatusLabelDeleted)
-}
-
-func (f *FarmController) FarmUpdateSuccessStatus(farm *v1.Farm, ipAddress, eventType, reason, message string) {
-	f.Reconcile.Event.Event(farm.DeepCopy(), eventType, reason, message)
-	f.updateLabels(farm, v1.FarmStatusLabelSynced)
-	farm.Status.IpAdress = ipAddress
-}
-
-func (f *FarmController) needToUpdate(farm *v1.Farm, service *corev1.Service) (bool, error) {
-	clusterInstance, err := f.getCluster(service)
-	if err != nil {
-		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to get provider for service %s in namespace %s error: %v", service.Name, service.Namespace, err))
-		return false, err
-	}
-
-	if farm.Spec.Cluster != clusterInstance.Name {
-		return true, nil
-	}
-
-	if value, ok := service.Labels[v1.ServiceStatusLabel]; !ok {
-		return true, nil
-	} else if value == v1.ServiceStatusLabelFailed {
-		return true, nil
-	}
-
-	if !reflect.DeepEqual(farm.Spec.Ports, service.Spec.Ports) {
-		return true, nil
-	}
-
-	nodeList, err := f.getNodeList(service, clusterInstance)
-	if err != nil {
-		f.MarkServiceStatusFail(service, fmt.Sprintf("Fail to get node lists for service %s in namespace %s error: %v", service.Name, service.Namespace, err))
-		return false, err
-	}
-
-	if !reflect.DeepEqual(farm.Status.NodeList, nodeList) {
-		return true, nil
-	}
-
-	return false, nil
 }
 
 func (f *FarmController) getServiceFromFarm(farmInstance *v1.Farm) (*corev1.Service, error) {
@@ -403,7 +316,7 @@ func (f *FarmController) reSyncFailFarms() {
 					if err != nil {
 						log.Log.V(2).Errorf("fail to find cluster object %s for farm %s", farmInstance.Spec.Cluster, farmInstance.Name)
 					} else {
-						f.updateFarm(&farmInstance, service, clusterInstance)
+						f.createUpdateFarm(&farmInstance, service, clusterInstance, false)
 					}
 				}
 			}

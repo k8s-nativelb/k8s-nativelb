@@ -39,7 +39,7 @@ func (c *farm) Create(farm *v1.Farm) (*v1.Farm, error) {
 		return nil, err
 	}
 
-	err = c.Client.Get(context.Background(), client.ObjectKey{Name: farm.Name, Namespace: v1.ControllerNamespace}, farm)
+	farm, err = c.Get(farm.Name)
 	if err != nil {
 		return nil, err
 	}

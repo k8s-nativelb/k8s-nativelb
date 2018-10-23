@@ -16,17 +16,16 @@ limitations under the License.
 package nativelb_controller
 
 import (
-	"github.com/k8s-nativelb/pkg/apis"
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"github.com/k8s-nativelb/pkg/log"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/server"
+	"github.com/k8s-nativelb/pkg/nativelb-controller/grpc-manager"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
+	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/backend"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/cluster"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/endpoint"
@@ -37,8 +36,8 @@ import (
 )
 
 type NativeLBManager struct {
-	nativelbCli        kubecli.NativelbClient
-	nativeLBGrpcServer *server.NativeLBGrpcServer
+	nativelbCli         kubecli.NativelbClient
+	nativeLBGrpcManager *grpc_manager.NativeLBGrpcManager
 
 	agentController   *agent_controller.AgentController
 	backendController *backend_controller.BackendController
@@ -55,20 +54,10 @@ func NewNativeLBManager() *NativeLBManager {
 		panic(err)
 	}
 
-	mgr := nativelbCli.GetManager()
-
-	log.Log.Infof("Registering Components.")
-
-	// Setup Scheme for all resources
-	schema := mgr.GetScheme()
-	if err := apis.AddToScheme(schema); err != nil {
-		panic(err)
-	}
-
 	stopChan := signals.SetupSignalHandler()
-	nativeLBGrpcServer := server.NewNativeLBGrpcServer(nativelbCli, stopChan)
+	nativeLBGrpcManager := grpc_manager.NewNativeLBGrpcManager(nativelbCli, stopChan)
 	nativeLBManager := &NativeLBManager{nativelbCli,
-		nativeLBGrpcServer,
+		nativeLBGrpcManager,
 		nil,
 		nil,
 		nil,
@@ -93,11 +82,7 @@ func (n *NativeLBManager) StartManager() {
 
 	log.Log.Infof("Starting Native LB Manager")
 
-	go n.nativeLBGrpcServer.StartServer()
-
-	//Start channel listener on controllers
-	go n.agentController.WaitForStatusUpdate()
-	go n.serverController.WaitForStatusUpdate()
+	go n.nativeLBGrpcManager.StartKeepalive()
 
 	n.nativelbCli.GetManager().Start(n.stopChan)
 }
@@ -106,14 +91,14 @@ func (n *NativeLBManager) StartManager() {
 func (n *NativeLBManager) addToManager() error {
 
 	log.Log.V(2).Infof("Creating Agent controller")
-	agentController, err := agent_controller.NewAgentController(n.nativelbCli, n.nativeLBGrpcServer.AgentStatusChannel)
+	agentController, err := agent_controller.NewAgentController(n.nativelbCli)
 	if err != nil {
 		return err
 	}
 	n.agentController = agentController
 
 	log.Log.V(2).Infof("Creating Cluster controller")
-	clusterController, err := cluster_controller.NewClusterController(n.nativelbCli, agentController, n.nativeLBGrpcServer)
+	clusterController, err := cluster_controller.NewClusterController(n.nativelbCli, agentController, n.nativeLBGrpcManager)
 	if err != nil {
 		return err
 	}
@@ -127,7 +112,7 @@ func (n *NativeLBManager) addToManager() error {
 	n.backendController = backendController
 
 	log.Log.V(2).Infof("Creating Server controller")
-	serverController, err := server_controller.NewServerController(n.nativelbCli, backendController, n.nativeLBGrpcServer.ServerStats)
+	serverController, err := server_controller.NewServerController(n.nativelbCli, backendController)
 	if err != nil {
 		return err
 	}

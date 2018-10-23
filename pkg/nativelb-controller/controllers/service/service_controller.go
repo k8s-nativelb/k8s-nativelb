@@ -141,21 +141,16 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
 			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
-		} else {
-			r.FarmController.UpdateSuccessEventOnService(service, "Successfully create/update service on provider")
 		}
 	}
 	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileService) UpdateEndpoints(service *corev1.Service, endpoint *corev1.Endpoints) {
-	log.Log.V(2).Infof("Service event, service name: %s from namespace %s", service.Name, service.Namespace)
 	if r.FarmController.CreateOrUpdateFarm(service, endpoint) {
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
 			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
-		} else {
-			r.FarmController.UpdateSuccessEventOnService(service, "Successfully create/update service on provider")
 		}
 	}
 }

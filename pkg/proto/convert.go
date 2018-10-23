@@ -19,7 +19,7 @@ import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 )
 
-func ConvertFarmToCommand(farm *v1.Farm) *Command {
+func ConvertFarmToGrpcData(farm *v1.Farm) *Data {
 	convertServers := make([]*Server, len(farm.Spec.Servers))
 
 	idx := 0
@@ -55,5 +55,15 @@ func ConvertFarmToCommand(farm *v1.Farm) *Command {
 		idx++
 	}
 
-	return &Command{Command: "", Servers: convertServers}
+	return &Data{Servers: convertServers}
+}
+
+func ConvertAgentProtoToK8sAgent(agent *Agent) *v1.Agent {
+	a := &v1.Agent{}
+	a.Namespace = v1.ControllerNamespace
+	a.Name = agent.HostName
+	a.Spec = v1.AgentSpec{HostName: agent.HostName, IPAddress: agent.IPAddress, Cluster: agent.Cluster}
+	a.Status = v1.AgentStatus{ConnectionStatus: v1.AgentAliveStatus}
+
+	return a
 }

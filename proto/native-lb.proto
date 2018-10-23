@@ -2,17 +2,18 @@ syntax = "proto3";
 
 package proto;
 
-import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 
 service NativeLoadBalancerAgent {
-    rpc Connect(Agent) returns (stream Command) {}
-    rpc UpdateAgentStatus(AgentStatus) returns (Result) {}
-    rpc UpdateServerStats(ServerStats) returns (Result) {}
+    rpc CreateServers(Data) returns (Result) {}
+    rpc UpdateServers(Data) returns (Result) {}
+    rpc DeleteServers(Data) returns (Result) {}
+    rpc GetAgentStatus(Command) returns (AgentStatus) {}
+    rpc GetServerStats(Command) returns (ServerStats) {}
 }
 
-message Command {
-    string Command = 1;
-    repeated Server Servers = 2;
+message Data {
+    repeated Server Servers = 1;
 }
 
 message Agent {
@@ -26,7 +27,7 @@ message AgentStatus {
     int32 Pid = 2;
     string StartTime = 3;
     string Time = 4;
-    google.protobuf.Timestamp Uptime = 5;
+    google.protobuf.Duration Uptime = 5;
     string Version = 6;
 }
 
@@ -95,4 +96,5 @@ message  BackendStatus {
     int32 TxSecond =8;
 }
 
+message Command {}
 message Result {}

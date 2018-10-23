@@ -16,21 +16,28 @@ limitations under the License.
 package nativelb_agent
 
 import (
+	"context"
 	"github.com/k8s-nativelb/pkg/log"
 	. "github.com/k8s-nativelb/pkg/proto"
 )
 
-func (n *NativelbAgent) CreateServers(servers []*Server) error {
-	log.Log.Infof("Get Create command with servers %+v", servers)
-	return nil
+func (n *NativelbAgent) CreateServers(ctx context.Context, data *Data) (*Result, error) {
+	log.Log.Infof("%v", data)
+	return &Result{}, nil
 }
-
-func (n *NativelbAgent) UpdateServers(servers []*Server) error {
-	log.Log.Infof("Get Update command with servers %+v", servers)
-	return nil
+func (n *NativelbAgent) UpdateServers(ctx context.Context, data *Data) (*Result, error) {
+	log.Log.Infof("%v", data)
+	return &Result{}, nil
 }
-
-func (n *NativelbAgent) DeleteServers(servers []*Server) error {
-	log.Log.Infof("Get Delete command with servers %+v", servers)
-	return nil
+func (n *NativelbAgent) DeleteServers(ctx context.Context, data *Data) (*Result, error) {
+	log.Log.Infof("%v", data)
+	return &Result{}, nil
+}
+func (n *NativelbAgent) GetAgentStatus(ctx context.Context, cmd *Command) (*AgentStatus, error) {
+	log.Log.Infof("%v", cmd)
+	return &AgentStatus{}, nil
+}
+func (n *NativelbAgent) GetServerStats(ctx context.Context, cmd *Command) (*ServerStats, error) {
+	log.Log.Infof("%v", cmd)
+	return &ServerStats{}, nil
 }

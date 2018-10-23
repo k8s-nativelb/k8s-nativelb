@@ -20,29 +20,28 @@ import (
 	"fmt"
 	"github.com/k8s-nativelb/pkg/nativelb-agent"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
-	controllerUrl, isExist := os.LookupEnv("CONTROLLER_URL")
-
-	if !isExist {
-		panic(fmt.Errorf("CONTROLLER_URL environment variable doesn't exist"))
-	}
-
 	clusterName, isExist := os.LookupEnv("CLUSTER_NAME")
-
 	if !isExist {
 		panic(fmt.Errorf("CLUSTER_NAME environment variable doesn't exist"))
 	}
 
 	controlInterface, isExist := os.LookupEnv("CONTROL_INTERFACE")
-
 	if !isExist {
 		panic(fmt.Errorf("CONTROL_INTERFACE environment variable doesn't exist"))
 	}
 
-	dataInterface, isExist := os.LookupEnv("DATA_INTERFACE")
+	controlPort, isExist := os.LookupEnv("CONTROL_PORT")
 	if !isExist {
+		panic(fmt.Errorf("CONTROL_PORT environment variable doesn't exist"))
+	}
+
+	dataInterface, isExist := os.LookupEnv("DATA_INTERFACE")
+	if !isExist || dataInterface == "" {
 		dataInterface = controlInterface
 	}
 
@@ -51,10 +50,17 @@ func main() {
 		syncInterface = controlInterface
 	}
 
-	agent, err := nativelb_agent.NewNativeAgent(controllerUrl, clusterName, controlInterface, dataInterface, syncInterface)
+	agent, err := nativelb_agent.NewNativeAgent(clusterName, controlInterface, controlPort, dataInterface, syncInterface)
 	if err != nil {
 		panic(err)
 	}
 
-	agent.StartAgent()
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+	go agent.StopAgent(stopChan)
+
+	err = agent.StartAgent()
+	if err != nil {
+		panic(err)
+	}
 }

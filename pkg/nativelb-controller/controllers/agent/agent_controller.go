@@ -20,8 +20,6 @@ import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"github.com/k8s-nativelb/pkg/log"
-	pb "github.com/k8s-nativelb/pkg/proto"
-
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,12 +31,11 @@ import (
 )
 
 type AgentController struct {
-	Controller         controller.Controller
-	Reconcile          *Reconcile
-	AgentStatusChannel chan pb.AgentStatus
+	Controller controller.Controller
+	Reconcile  *Reconcile
 }
 
-func NewAgentController(nativelbClient kubecli.NativelbClient, AgentStatusChannel chan pb.AgentStatus) (*AgentController, error) {
+func NewAgentController(nativelbClient kubecli.NativelbClient) (*AgentController, error) {
 	reconcileInstance := newReconciler(nativelbClient)
 	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {
@@ -46,7 +43,7 @@ func NewAgentController(nativelbClient kubecli.NativelbClient, AgentStatusChanne
 	}
 
 	agentController := &AgentController{Controller: controllerInstance,
-		Reconcile: reconcileInstance, AgentStatusChannel: AgentStatusChannel}
+		Reconcile: reconcileInstance}
 
 	return agentController, nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
@@ -25,6 +26,8 @@ import (
 type AgentSpec struct {
 	HostName  string `json:"hostName"`
 	IPAddress string `json:"ipAddress"`
+	Port      int32  `json:"port"`
+	Cluster   string `json:"cluster"`
 }
 
 // +k8s:openapi-gen=true
@@ -40,7 +43,7 @@ type AgentStatus struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Cluster is the Schema for the clusters API
+// Agent is the Schema for the Agents API
 // +k8s:openapi-gen=true
 type Agent struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -52,13 +55,17 @@ type Agent struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterList contains a list of Cluster
+// AgentList contains a list of Agent
 type AgentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Cluster `json:"items"`
+	Items           []Agent `json:"items"`
 }
 
 func init() {
 	SchemeBuilder.Register(&Agent{}, &AgentList{})
+}
+
+func (a *Agent) GetUrl() string {
+	return fmt.Sprintf("%s:%d", a.Spec.IPAddress, a.Spec.Port)
 }

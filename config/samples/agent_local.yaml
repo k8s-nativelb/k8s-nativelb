@@ -1,0 +1,11 @@
+---
+apiVersion: k8s.native-lb/v1
+kind: Agent
+metadata:
+  name: agent-local
+  namespace: nativelb
+spec:
+  hostName: node01
+  ipAddress: 10.35.0.149
+  port: 8080
+  cluster: cluster-sample-internal

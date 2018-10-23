@@ -59,7 +59,7 @@ func (in *AgentList) DeepCopyInto(out *AgentList) {
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]Cluster, len(*in))
+		*out = make([]Agent, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

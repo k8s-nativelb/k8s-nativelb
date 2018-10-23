@@ -10,31 +10,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//func (c *ClusterController) CreateFarm(farm *v1.Farm,cluster *v1.Cluster) (string, error) {
-//	farmIpAddress, err := c.getIpAddrFromAllocator(farm,cluster)
-//	if err != nil {
-//		log.Log.V(2).Errorf("Fail to allocate Ip address for farm: %s on cluster %s error message: %v", farm.Name, cluster.Name, err)
-//		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
-//		return "", err
-//	}
-//
-//	servers := farm.UpdateServers(cluster.Spec.Internal,farmIpAddress)
-//	err = c.UpdateServerData(farm,servers)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	err = c.clusterConnection.CreateFarmOnCluster(farm,cluster)
-//	if err != nil {
-//		log.Log.Errorf("Fail to create farm %s on cluster %s error %v",farm.Name,cluster.Name,err)
-//		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
-//		return "",err
-//	}
-//
-//	c.updateClusterObject(cluster)
-//	c.clusterUpdateSuccessStatus(cluster, "Normal", "FarmCreateSuccess", fmt.Sprintf("Farm %s-%s was created on cluster", farm.Namespace, farm.Name))
-//	return farmIpAddress, nil
-//}
+func (c *ClusterController) CreateFarm(farm *v1.Farm, cluster *v1.Cluster) (string, error) {
+	farmIpAddress, err := c.getIpAddrFromAllocator(farm, cluster)
+	if err != nil {
+		log.Log.V(2).Errorf("Fail to allocate Ip address for farm: %s on cluster %s error message: %v", farm.Name, cluster.Name, err)
+		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
+		return "", err
+	}
+	farm.Status.IpAdress = farmIpAddress
+
+	servers := farm.UpdateServers(cluster.Spec.Internal, farm.Status.IpAdress)
+	err = c.UpdateServerData(farm, servers)
+	if err != nil {
+		return "", err
+	}
+
+	cluster.Status.AllocatedIps[farm.Status.IpAdress] = farm.Name
+	c.updateClusterObject(cluster)
+
+	err = c.clusterConnection.CreateFarmOnCluster(farm, cluster)
+	if err != nil {
+		log.Log.Errorf("Fail to create farm %s on cluster %s error %v", farm.Name, cluster.Name, err)
+		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
+		return "", err
+	}
+
+	c.clusterUpdateSuccessStatus(cluster, "Normal", "FarmCreateSuccess", fmt.Sprintf("Farm %s-%s was created on cluster", farm.Namespace, farm.Name))
+	return farmIpAddress, nil
+}
 
 func (c *ClusterController) UpdateFarm(farm *v1.Farm, cluster *v1.Cluster) (string, error) {
 	farmIpAddress, err := c.getIpAddrFromAllocator(farm, cluster)
@@ -224,11 +227,12 @@ func (c *ClusterController) clusterUpdateSuccessStatus(cluster *v1.Cluster, even
 }
 
 func (c *ClusterController) updateClusterObject(cluster *v1.Cluster) error {
-	cluster, err := c.Cluster().Update(cluster)
+	clusterObject, err := c.Cluster().Update(cluster)
 	if err != nil {
 		log.Log.Errorf("fail to update cluster %s error %v", cluster.Name, err)
 		return err
 	}
 
+	cluster = clusterObject
 	return nil
 }

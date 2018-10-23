@@ -21,28 +21,26 @@ import (
 	"github.com/k8s-nativelb/pkg/nativelb-agent/loadbalancer"
 	. "github.com/k8s-nativelb/pkg/proto"
 
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
-
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 
-	"context"
 	"fmt"
+	"net"
 	"os"
-	"time"
+	"strconv"
 )
 
 type NativelbAgent struct {
-	controllerUrl          string
+	controlIPAddress       string
+	controlPort            int
 	clusterName            string
 	controlInterface       string
 	dataInterface          string
 	syncInterface          string
 	loadBalancerController *loadbalancer.LoadBalancer
 	keepalivedController   *keepalived.Keepalived
-	clientStream           NativeLoadBalancerAgent_ConnectClient
 	agentData              *Agent
-	stopChan               <-chan struct{}
+	grpcServer             *grpc.Server
 }
 
 type RecvChannelStruct struct {
@@ -50,13 +48,21 @@ type RecvChannelStruct struct {
 	err     error
 }
 
-func NewNativeAgent(controllerUrl, clusterName, controlInterface, dataInterface, syncInterface string) (*NativelbAgent, error) {
+func NewNativeAgent(clusterName, controlInterface, controlPortStr, dataInterface, syncInterface string) (*NativelbAgent, error) {
 	agentData, err := createAgentData(clusterName, controlInterface)
 	if err != nil {
 		return nil, err
 	}
 
-	return &NativelbAgent{controllerUrl: controllerUrl, stopChan: signals.SetupSignalHandler(),
+	controlPort, err := strconv.Atoi(controlPortStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert port %s to int error: %v", controlPortStr, err)
+	}
+
+	opts := []grpc.ServerOption{}
+	grpcServer := grpc.NewServer(opts...)
+
+	return &NativelbAgent{controlPort: controlPort, controlIPAddress: agentData.IPAddress, grpcServer: grpcServer,
 		keepalivedController:   keepalived.NewKeepalived(),
 		loadBalancerController: loadbalancer.NewLoadBalancer(), agentData: agentData, dataInterface: dataInterface, syncInterface: syncInterface}, nil
 }
@@ -72,6 +78,10 @@ func createAgentData(clusterName, controlInterface string) (*Agent, error) {
 		return nil, fmt.Errorf("Fail to get ip addresses on interface %s error: %v", controlInterface, err)
 	}
 
+	if len(ipAddr) == 0 {
+		return nil, fmt.Errorf("None ip addresses on interface %s", controlInterface)
+	}
+
 	if len(ipAddr) != 1 {
 		return nil, fmt.Errorf("Multiple ip addresses on interface %s", controlInterface)
 	}
@@ -84,85 +94,19 @@ func createAgentData(clusterName, controlInterface string) (*Agent, error) {
 	return &Agent{Cluster: clusterName, HostName: hostName, IPAddress: ipAddr[0].IP.String()}, nil
 }
 
-func (n *NativelbAgent) connectToController() {
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-
-	for true {
-		log.Log.V(2).Infof("Trying to connect to %s", n.controllerUrl)
-		conn, err := grpc.Dial(n.controllerUrl, opts...)
-		if err == nil {
-			grpcClient := NewNativeLoadBalancerAgentClient(conn)
-			connectClient, err := grpcClient.Connect(context.Background(), n.agentData)
-			if err == nil {
-				n.clientStream = connectClient
-				return
-			}
-			log.Log.V(2).Errorf("Fail to connect to controller %s error: %v", n.controllerUrl, err)
-		} else {
-			log.Log.V(2).Errorf("Fail to dial to grpc server %s error: %v", n.controllerUrl, err)
-		}
-
-		time.Sleep(5 * time.Second)
+func (n *NativelbAgent) StartAgent() error {
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", n.agentData.IPAddress, n.controlPort))
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s error: %v", fmt.Sprintf("%s:%d", n.agentData.IPAddress, n.controlPort), err)
 	}
+
+	RegisterNativeLoadBalancerAgentServer(n.grpcServer, n)
+	return n.grpcServer.Serve(lis)
 }
 
-func receiveDataFromController(recvStream NativeLoadBalancerAgent_ConnectClient, recvChannel chan RecvChannelStruct) {
-	for {
-		command, err := recvStream.Recv()
-		recvChannel <- RecvChannelStruct{command: command, err: err}
-		if err != nil {
-			return
-		}
-	}
-}
-
-func (n *NativelbAgent) connectionLoop() error {
-	recvChannel := make(chan RecvChannelStruct)
-	go receiveDataFromController(n.clientStream, recvChannel)
-
-	for {
-		select {
-		case <-n.stopChan:
-			n.StopAgent()
-			return nil
-		case recvStruct := <-recvChannel:
-			if recvStruct.err != nil {
-				log.Log.V(2).Errorf("Fail to receive message from controller error: %v", recvStruct.err)
-				return recvStruct.err
-			}
-			var err error
-			switch recvStruct.command.Command {
-			case AgentKeepAlive:
-				log.Log.V(2).Info("Get keepalive from server")
-			case AgentCreateCommand:
-				err = n.CreateServers(recvStruct.command.Servers)
-			case AgentUpdateCommand:
-				err = n.UpdateServers(recvStruct.command.Servers)
-			case AgentDeleteCommand:
-				err = n.DeleteServers(recvStruct.command.Servers)
-			default:
-				err = fmt.Errorf("Command not found command: %s", recvStruct.command.Command)
-			}
-
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (n *NativelbAgent) StartAgent() {
-	for {
-		n.connectToController()
-
-		err := n.connectionLoop()
-		if err == nil {
-			n.clientStream.CloseSend()
-		}
-	}
-}
-
-func (n *NativelbAgent) StopAgent() {
-	log.Log.V(2).Infof("Receive stop signal stop keepalived and loadbalancer process")
+func (n *NativelbAgent) StopAgent(stopChan chan os.Signal) {
+	<-stopChan
+	log.Log.V(2).Infof("Receive stop signal stop keepalived, loadbalancer process and grpc server")
+	n.grpcServer.Stop()
 	//TODO: Stop the processes and cleanup the ip configuration
 }

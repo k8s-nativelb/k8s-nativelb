@@ -14,10 +14,3 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 package proto
-
-const (
-	AgentCreateCommand = "create"
-	AgentUpdateCommand = "update"
-	AgentDeleteCommand = "delete"
-	AgentKeepAlive     = "keepalive"
-)
