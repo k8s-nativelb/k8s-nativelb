@@ -38,6 +38,7 @@ type AgentStatus struct {
 	Uptime           time.Duration `json:"uptime,omitempty"`
 	Version          string        `json:"version,omitempty"`
 	ConnectionStatus string        `json:"connectionStatus,omitempty"`
+	LastUpdate       metav1.Time   `json:"lastUpdate,omitempty"`
 }
 
 // +genclient

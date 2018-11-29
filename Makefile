@@ -32,7 +32,7 @@ manifests:
 
 # TODO: need to fix this
 crd:
-	echo "Need to update the crd manualy (remove status and things other then Proterties"
+	echo "Need to update the crd manualy (remove status and things other then Proterties)"
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd
 
 rbac:
@@ -40,9 +40,10 @@ rbac:
 
 # Generate code
 generate:
+	mockgen -source pkg/proto/proto.pb.go -package=proto -destination=pkg/proto/generated_mock_proto.go
 	go generate ./pkg/... ./cmd/...
-#	protoc -I. proto/native-lb.proto --go_out=plugins=grpc:.
-#	cp proto/native-lb.pb.go pkg/proto/proto.pb.go
+	protoc -I. proto/native-lb.proto --go_out=plugins=grpc:.
+	cp proto/native-lb.pb.go pkg/proto/proto.pb.go
 
 vet:
 	go vet ./pkg/... ./cmd/...

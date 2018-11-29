@@ -22,17 +22,27 @@ spec:
           type: object
         spec:
           properties:
+            cluster:
+              type: string
             hostName:
               type: string
             ipAddress:
               type: string
+            port:
+              format: int32
+              type: integer
           required:
           - hostName
           - ipAddress
+          - port
+          - cluster
           type: object
         status:
           properties:
             connectionStatus:
+              type: string
+            lastUpdate:
+              format: date-time
               type: string
             pid:
               format: int64

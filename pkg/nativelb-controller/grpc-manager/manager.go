@@ -34,10 +34,12 @@ func NewNativeLBGrpcManager(nativelbClient kubecli.NativelbClient, stopChan <-ch
 
 func (n *NativeLBGrpcManager) StartKeepalive() {
 	n.nativelbClient.GetManager().GetCache().WaitForCacheSync(n.stopChan)
-	select {
-	case <-n.stopChan:
-		return
-	case <-time.Tick(v1.KeepaliveTime * time.Second):
-		n.keepalive()
+	for {
+		select {
+		case <-n.stopChan:
+			return
+		case <-time.Tick(v1.KeepaliveTime * time.Second):
+			n.keepalive()
+		}
 	}
 }

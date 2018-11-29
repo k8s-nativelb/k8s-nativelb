@@ -30,7 +30,7 @@ func main() {
 		panic(fmt.Errorf("CLUSTER_NAME environment variable doesn't exist"))
 	}
 
-	controlInterface, isExist := os.LookupEnv("CONTROL_INTERFACE")
+	controlIP, isExist := os.LookupEnv("CONTROL_IP")
 	if !isExist {
 		panic(fmt.Errorf("CONTROL_INTERFACE environment variable doesn't exist"))
 	}
@@ -42,15 +42,15 @@ func main() {
 
 	dataInterface, isExist := os.LookupEnv("DATA_INTERFACE")
 	if !isExist || dataInterface == "" {
-		dataInterface = controlInterface
+		dataInterface = ""
 	}
 
 	syncInterface, isExist := os.LookupEnv("SYNC_INTERFACE")
 	if !isExist {
-		syncInterface = controlInterface
+		syncInterface = ""
 	}
 
-	agent, err := nativelb_agent.NewNativeAgent(clusterName, controlInterface, controlPort, dataInterface, syncInterface)
+	agent, err := nativelb_agent.NewNativeAgent(clusterName, controlIP, controlPort, dataInterface, syncInterface)
 	if err != nil {
 		panic(err)
 	}

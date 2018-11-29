@@ -30,7 +30,7 @@ const (
 	EventRecorderName   = "nativelb"
 	ControllerNamespace = "nativelb"
 	ClusterLabel        = "nativelb.cluster"
-	KeepaliveTime = 30
+	KeepaliveTime       = 30
 
 	BackendConnectionTimeout = "2s"
 	BackendIdleTimeout       = "10m"

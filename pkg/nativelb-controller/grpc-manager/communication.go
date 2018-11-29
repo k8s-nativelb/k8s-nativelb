@@ -17,14 +17,19 @@ package grpc_manager
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/proto"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func (n *NativeLBGrpcManager) CreateFarmOnCluster(farm *v1.Farm, cluster *v1.Cluster) error {
@@ -46,14 +51,13 @@ func (n *NativeLBGrpcManager) keepalive() {
 	}
 	for _, agent := range agents.Items {
 		n.getAgentStatus(agent)
-
 	}
 }
 
 func (n *NativeLBGrpcManager) getAgentStatus(agent v1.Agent) {
 	conn, err := n.connect(agent.GetUrl())
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to connect to agent %s url %s error: %v",agent.Name,agent.GetUrl(),err)
+		log.Log.Reason(err).Errorf("failed to connect to agent %s url %s error: %v", agent.Name, agent.GetUrl(), err)
 		agent.Status.ConnectionStatus = v1.AgentDownStatus
 		err = n.updateAgentStatus(agent)
 		if err != nil {
@@ -66,7 +70,7 @@ func (n *NativeLBGrpcManager) getAgentStatus(agent v1.Agent) {
 	grpcClient := proto.NewNativeLoadBalancerAgentClient(conn)
 	agentStatus, err := grpcClient.GetAgentStatus(context.TODO(), &proto.Command{})
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create grpc client to agent %s url %s error: %v",agent.Name,agent.GetUrl(),err)
+		log.Log.Reason(err).Errorf("failed to create grpc client to agent %s url %s error: %v", agent.Name, agent.GetUrl(), err)
 		agent.Status.ConnectionStatus = v1.AgentDownStatus
 		err = n.updateAgentStatus(agent)
 		if err != nil {
@@ -75,8 +79,16 @@ func (n *NativeLBGrpcManager) getAgentStatus(agent v1.Agent) {
 		return
 	}
 
-	//TODO: parse agent status to k8s object status
-	fmt.Println(*agentStatus)
+	if int(agentStatus.Pid) == 0 {
+		log.Log.Errorf("get bad response from agent %s, pid can't be 0", agent.Name)
+		agent.Status.ConnectionStatus = v1.AgentDownStatus
+		err = n.updateAgentStatus(agent)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to update agent %s to down status error: %v", agent.Name, err)
+		}
+		return
+	}
+
 	agent.Status.ConnectionStatus = v1.AgentAliveStatus
 	agent.Status.Pid = int(agentStatus.Pid)
 	agent.Status.StartTime = agentStatus.StartTime
@@ -147,6 +159,7 @@ func (n *NativeLBGrpcManager) sendDataToAgent(command string, farm *v1.Farm, clu
 
 func (n *NativeLBGrpcManager) updateAgentStatus(agent v1.Agent) error {
 	n.updateAgentStatusMutex.Lock()
+	agent.Status.LastUpdate = metav1.Time{Time: time.Now()}
 	_, err := n.nativelbClient.Agent().Update(&agent)
 	n.updateAgentStatusMutex.Unlock()
 	return err

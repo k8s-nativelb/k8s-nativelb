@@ -19,7 +19,11 @@ message Data {
 message Agent {
     string HostName = 1;
     string IPAddress = 2;
-    string Cluster = 3;
+    int32 Port = 3;
+    string ControlInterface = 4;
+    string SyncInterface = 5;
+    string DataInterface = 6;
+    string Cluster = 7;
 }
 
 message AgentStatus {

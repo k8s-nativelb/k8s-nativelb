@@ -37,8 +37,8 @@ before_script:
 
 script:
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run make. Please run it and commit the changes"; git status --porcelain; false; fi
-- timeout 10m bash -x test.sh
-- timeout 20m bash -x func-test.sh
+- timeout 10m bash -x make docker-test
+- timeout 20m bash -x make docker-functest
 
 deploy:
 - provider: script

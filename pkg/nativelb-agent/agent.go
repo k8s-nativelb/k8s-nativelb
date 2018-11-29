@@ -31,15 +31,9 @@ import (
 )
 
 type NativelbAgent struct {
-	controlIPAddress       string
-	controlPort            int
-	clusterName            string
-	controlInterface       string
-	dataInterface          string
-	syncInterface          string
+	agent                  *Agent
 	loadBalancerController *loadbalancer.LoadBalancer
 	keepalivedController   *keepalived.Keepalived
-	agentData              *Agent
 	grpcServer             *grpc.Server
 }
 
@@ -48,10 +42,22 @@ type RecvChannelStruct struct {
 	err     error
 }
 
-func NewNativeAgent(clusterName, controlInterface, controlPortStr, dataInterface, syncInterface string) (*NativelbAgent, error) {
-	agentData, err := createAgentData(clusterName, controlInterface)
+func NewNativeAgent(clusterName, controlIp, controlPortStr, dataInterface, syncInterface string) (*NativelbAgent, error) {
+	agentData, err := createAgentData(clusterName, controlIp)
 	if err != nil {
 		return nil, err
+	}
+
+	if dataInterface == "" {
+		agentData.DataInterface = agentData.ControlInterface
+	} else {
+		agentData.DataInterface = dataInterface
+	}
+
+	if syncInterface == "" {
+		agentData.SyncInterface = agentData.ControlInterface
+	} else {
+		agentData.SyncInterface = syncInterface
 	}
 
 	controlPort, err := strconv.Atoi(controlPortStr)
@@ -59,48 +65,60 @@ func NewNativeAgent(clusterName, controlInterface, controlPortStr, dataInterface
 		return nil, fmt.Errorf("failed to convert port %s to int error: %v", controlPortStr, err)
 	}
 
+	agentData.Port = int32(controlPort)
+
 	opts := []grpc.ServerOption{}
 	grpcServer := grpc.NewServer(opts...)
 
-	return &NativelbAgent{controlPort: controlPort, controlIPAddress: agentData.IPAddress, grpcServer: grpcServer,
+	return &NativelbAgent{agent: agentData, grpcServer: grpcServer,
 		keepalivedController:   keepalived.NewKeepalived(),
-		loadBalancerController: loadbalancer.NewLoadBalancer(), agentData: agentData, dataInterface: dataInterface, syncInterface: syncInterface}, nil
+		loadBalancerController: loadbalancer.NewLoadBalancer()}, nil
 }
 
-func createAgentData(clusterName, controlInterface string) (*Agent, error) {
-	controlInterfaceLink, err := netlink.LinkByName(controlInterface)
+func createAgentData(clusterName, controlIp string) (*Agent, error) {
+	interfacesList, err := netlink.LinkList()
 	if err != nil {
+		log.Log.Reason(err).Errorf("failed to list interfaces")
 		return nil, err
 	}
 
-	ipAddr, err := netlink.AddrList(controlInterfaceLink, netlink.FAMILY_V4)
-	if err != nil {
-		return nil, fmt.Errorf("Fail to get ip addresses on interface %s error: %v", controlInterface, err)
+	for _, iface := range interfacesList {
+		ifaceName := iface.Attrs().Name
+
+		controlInterfaceLink, err := netlink.LinkByName(ifaceName)
+		if err != nil {
+			return nil, err
+		}
+
+		ipAddrs, err := netlink.AddrList(controlInterfaceLink, netlink.FAMILY_V4)
+		if err != nil {
+			return nil, fmt.Errorf("Fail to get ip addresses on interface %s error: %v", iface, err)
+		}
+
+		for _, ipaddr := range ipAddrs {
+			if ipaddr.IP.String() == controlIp {
+
+				hostName, err := os.Hostname()
+				if err != nil {
+					return nil, fmt.Errorf("Fail to get hostname error: %v", err)
+				}
+
+				return &Agent{Cluster: clusterName, HostName: hostName, IPAddress: controlIp, ControlInterface: ifaceName}, nil
+			}
+		}
 	}
 
-	if len(ipAddr) == 0 {
-		return nil, fmt.Errorf("None ip addresses on interface %s", controlInterface)
-	}
-
-	if len(ipAddr) != 1 {
-		return nil, fmt.Errorf("Multiple ip addresses on interface %s", controlInterface)
-	}
-
-	hostName, err := os.Hostname()
-	if err != nil {
-		return nil, fmt.Errorf("Fail to get hostname error: %v", err)
-	}
-
-	return &Agent{Cluster: clusterName, HostName: hostName, IPAddress: ipAddr[0].IP.String()}, nil
+	return nil, fmt.Errorf("failed to find interface related to ip address %s", controlIp)
 }
 
 func (n *NativelbAgent) StartAgent() error {
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", n.agentData.IPAddress, n.controlPort))
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", n.agent.IPAddress, n.agent.Port))
 	if err != nil {
-		return fmt.Errorf("failed to listen on %s error: %v", fmt.Sprintf("%s:%d", n.agentData.IPAddress, n.controlPort), err)
+		return fmt.Errorf("failed to listen on %s error: %v", fmt.Sprintf("%s:%d", n.agent.IPAddress, n.agent.Port), err)
 	}
 
 	RegisterNativeLoadBalancerAgentServer(n.grpcServer, n)
+	log.Log.Infof("Starting agent on %s address", fmt.Sprintf("%s:%d", n.agent.IPAddress, n.agent.Port))
 	return n.grpcServer.Serve(lis)
 }
 

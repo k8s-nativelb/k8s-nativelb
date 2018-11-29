@@ -6,6 +6,6 @@ metadata:
   namespace: nativelb
 spec:
   hostName: node01
-  ipAddress: 10.35.0.149
-  port: 8080
+  ipAddress: 192.168.1.126
+  port: 8000
   cluster: cluster-sample-internal
