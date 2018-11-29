@@ -32,12 +32,14 @@ type AgentSpec struct {
 
 // +k8s:openapi-gen=true
 type AgentStatus struct {
-	Pid              int           `json:"pid,omitempty"`
+	LBPid            int           `json:"lbPid,omitempty"`
+	KeepAlivedPid    int           `json:"KeepAlivedPid,omitempty"`
 	StartTime        string        `json:"startTime,omitempty"`
 	Time             string        `json:"time,omitempty"`
 	Uptime           time.Duration `json:"uptime,omitempty"`
 	Version          string        `json:"version,omitempty"`
 	ConnectionStatus string        `json:"connectionStatus,omitempty"`
+	LastUpdate       metav1.Time   `json:"lastUpdate,omitempty"`
 }
 
 // +genclient

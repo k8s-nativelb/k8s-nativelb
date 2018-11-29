@@ -8,9 +8,6 @@ import (
 )
 
 var _ = Describe("External Cluster", func() {
-	testClient, err := NewTestClient()
-	PanicOnError(err)
-
 	var nginxDeployment *v1.Deployment
 
 	BeforeEach(func() {

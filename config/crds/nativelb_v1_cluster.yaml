@@ -33,6 +33,8 @@ spec:
           type: object
         status:
           properties:
+            AllocatedNamespaces:
+              type: object
             agents:
               type: object
             allocatedIps:

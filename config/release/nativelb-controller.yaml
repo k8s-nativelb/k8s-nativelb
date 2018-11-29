@@ -1,11 +1,4 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: nativelb
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,15 +37,3 @@ spec:
             cpu: 500m
             memory: 200Mi
       terminationGracePeriodSeconds: 10
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: nativelb-controller
-  namespace: nativelb
-spec:
-  selector:
-    control-plane: nativelb-controller
-  ports:
-  - protocol: TCP
-    port: 8080

@@ -6,13 +6,11 @@ import (
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type TestClient struct {
@@ -28,12 +26,6 @@ func NewTestClient() (*TestClient, error) {
 		return nil, err
 	}
 
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{})
-	if err != nil {
-		return nil, err
-	}
-
 	KubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -44,7 +36,7 @@ func NewTestClient() (*TestClient, error) {
 		return nil, err
 	}
 
-	return &TestClient{KubeClient: KubeClient, Client: mgr.GetClient(), NativelbClient: nativelbClient}, nil
+	return &TestClient{KubeClient: KubeClient, Client: nativelbClient.GetClient(), NativelbClient: nativelbClient}, nil
 }
 
 func (t *TestClient) CreateTestNamespace() {

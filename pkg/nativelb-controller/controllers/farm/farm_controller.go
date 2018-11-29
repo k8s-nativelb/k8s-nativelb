@@ -17,11 +17,6 @@ limitations under the License.
 package farm_controller
 
 import (
-	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
-	"github.com/k8s-nativelb/pkg/kubecli"
-	//pb "github.com/k8s-nativelb/pkg/proto"
-	"github.com/k8s-nativelb/pkg/log"
-
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -31,6 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 
+	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
+	"github.com/k8s-nativelb/pkg/kubecli"
+	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/cluster"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/server"
 )

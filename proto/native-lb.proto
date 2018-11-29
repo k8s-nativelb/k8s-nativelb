@@ -8,27 +8,52 @@ service NativeLoadBalancerAgent {
     rpc CreateServers(Data) returns (Result) {}
     rpc UpdateServers(Data) returns (Result) {}
     rpc DeleteServers(Data) returns (Result) {}
+    rpc InitAgent(InitAgentData) returns (InitAgentResult) {}
     rpc GetAgentStatus(Command) returns (AgentStatus) {}
     rpc GetServerStats(Command) returns (ServerStats) {}
+    rpc UpdateAgentSyncVersion(InitAgentData) returns (Result) {}
+}
+
+message InitAgentData {
+    int32 SyncVersion = 1;
+    repeated Data Data = 2;
+}
+
+message InitAgentResult {
+    Agent Agent = 1;
+    AgentStatus AgentStatus = 2;
 }
 
 message Data {
-    repeated Server Servers = 1;
+    string FarmName = 1;
+    // Keepalived Parameters
+    string Namespace = 2;
+    string KeepalivedState = 3;
+    int32 RouterID = 4;
+    int32 Priority = 5;
+    repeated Server Servers = 6;
 }
 
 message Agent {
     string HostName = 1;
     string IPAddress = 2;
-    string Cluster = 3;
+    int32 Port = 3;
+    string ControlInterface = 4;
+    string SyncInterface = 5;
+    string DataInterface = 6;
+    string Cluster = 7;
 }
 
 message AgentStatus {
     string Name = 1;
-    int32 Pid = 2;
-    string StartTime = 3;
-    string Time = 4;
-    google.protobuf.Duration Uptime = 5;
-    string Version = 6;
+    int32 LBPid = 2;
+    int32 KeepAlivedPid = 3;
+    string StartTime = 4;
+    string Time = 5;
+    google.protobuf.Duration Uptime = 6;
+    string Version = 7;
+    string Status = 8;
+    int32 SyncVersion = 9;
 }
 
 message ServerStats {
@@ -42,16 +67,18 @@ message ServerStats {
 }
 
 message Server {
+    // LoadBalancer Parameters
     string Bind = 1;
     string Protocol = 2;
-    UDP UDP = 3;
-    string Balance = 4;
-    int32 MaxConnections = 5;
-    string ClientIdleTimeout = 6;
-    string BackendIdleTimeout = 7;
-    string BackendConnectionTimeout = 8;
-    Discovery Discovery = 9;
-    HealthCheck HealthCheck = 10;
+    int32 Port = 3;
+    UDP UDP = 4;
+    string Balance = 5;
+    int32 MaxConnections = 6;
+    string ClientIdleTimeout = 7;
+    string BackendIdleTimeout = 8;
+    string BackendConnectionTimeout = 9;
+    Discovery Discovery = 10;
+    HealthCheck HealthCheck = 11;
 }
 
 message Discovery {
@@ -80,7 +107,7 @@ message Backend {
 
 message BackendSpec {
     string Host = 1;
-    string Port = 2;
+    int32 Port = 2;
     int32 Priority = 3;
     int32 Weight = 4;
 }

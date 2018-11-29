@@ -1,0 +1,12 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-service2
+spec:
+  selector:
+    app: nginx2
+  ports:
+  - protocol: TCP
+    port: 80
+  type: LoadBalancer

@@ -3,6 +3,8 @@ REGISTRY ?= quay.io
 IMG_CONTROLLER ?= k8s-nativelb/nativelb-controller
 IMG_API ?= k8s-nativelb/nativelb-api
 IMG_AGENT ?= k8s-nativelb/nativelb-agent
+IMG_AGENT_MOCK ?= k8s-nativelb/nativelb-agent-mock
+
 IMAGE_TAG ?= latest
 
 all: docker-make
@@ -22,8 +24,8 @@ install:
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: install
-	kubectl apply -f config/samples
-	#kubectl apply -f config/manager
+	kubectl create ns nativelb
+	kubectl apply -f config/release
 
 # Generate manifests e.g. CRD, RBAC etc.
 # TODO: need to fix the CRD generator remove the status section. then return the command to all
@@ -32,7 +34,7 @@ manifests:
 
 # TODO: need to fix this
 crd:
-	echo "Need to update the crd manualy (remove status and things other then Proterties"
+	echo "Need to update the crd manualy (remove status and things other then Proterties)"
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd
 
 rbac:
@@ -40,9 +42,10 @@ rbac:
 
 # Generate code
 generate:
+	mockgen -source pkg/proto/proto.pb.go -package=proto -destination=pkg/proto/generated_mock_proto.go
 	go generate ./pkg/... ./cmd/...
-#	protoc -I. proto/native-lb.proto --go_out=plugins=grpc:.
-#	cp proto/native-lb.pb.go pkg/proto/proto.pb.go
+	protoc -I. proto/native-lb.proto --go_out=plugins=grpc:.
+	cp proto/native-lb.pb.go pkg/proto/proto.pb.go
 
 vet:
 	go vet ./pkg/... ./cmd/...
@@ -75,11 +78,13 @@ docker-functest:
 docker-build:
 	docker build -f./cmd/nativelb-controller/Dockerfile -t ${REGISTRY}/${IMG_CONTROLLER}:${IMAGE_TAG} .
 	docker build -f./cmd/nativelb-agent/Dockerfile -t ${REGISTRY}/${IMG_AGENT}:${IMAGE_TAG} .
+	docker build -f./cmd/nativelb-agent-mock/Dockerfile -t ${REGISTRY}/${IMG_AGENT_MOCK}:${IMAGE_TAG} .
 
 # Push the docker image
 docker-push: docker-build
 	docker push ${REGISTRY}/${IMG_CONTROLLER}:${IMAGE_TAG}
 	docker push ${REGISTRY}/${IMG_AGENT}:${IMAGE_TAG}
+	docker push ${REGISTRY}/${IMG_AGENT_MOCK}:${IMAGE_TAG}
 
 cluster-up:
 	./cluster/up.sh

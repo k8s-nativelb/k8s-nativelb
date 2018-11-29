@@ -11,7 +11,7 @@ COPY vendor/ vendor/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o nativelb-controller github.com/k8s-nativelb/cmd/nativelb-controller
 
 # Copy the controller-manager into a thin image
-FROM centos:latest
+FROM fedora:29
 WORKDIR /root/
 COPY --from=builder /go/src/github.com/k8s-nativelb/nativelb-controller .
 ENTRYPOINT ["./nativelb-controller"]

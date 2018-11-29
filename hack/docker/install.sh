@@ -7,3 +7,7 @@ mv protoc3/bin/* /usr/local/bin/
 mv protoc3/include/* /usr/local/include/
 rm -f $PROTOC_ZIP
 rm -rf prtoc3
+
+chmod -R +r /usr/local/include/
+mkdir mkdir /.cache
+chmod -R 777 /.cache

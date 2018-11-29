@@ -2,11 +2,9 @@ package farm_controller
 
 import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
+	"github.com/k8s-nativelb/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"time"
 )
 
 func (f *FarmController) updateServiceIpAddress(service *corev1.Service, farmIpAddress string) {
@@ -18,12 +16,6 @@ func (f *FarmController) updateServiceIpAddress(service *corev1.Service, farmIpA
 
 	ingressList = append(ingressList, corev1.LoadBalancerIngress{IP: farmIpAddress})
 	service.Status.LoadBalancer.Ingress = ingressList
-
-	if service.Labels == nil {
-		service.Labels = make(map[string]string)
-	}
-
-	service.Labels[v1.ServiceStatusLabel] = v1.ServiceStatusLabelSynced
 }
 
 func (f *FarmController) updateLabels(farm *v1.Farm, status string) {
@@ -31,8 +23,6 @@ func (f *FarmController) updateLabels(farm *v1.Farm, status string) {
 		farm.Labels = make(map[string]string)
 	}
 	farm.Labels[v1.FarmStatusLabel] = status
-	farm.Status.ConnectionStatus = status
-	farm.Status.LastUpdate = metav1.NewTime(time.Now())
 }
 
 func (f *FarmController) FarmUpdateFailStatus(farm *v1.Farm, eventType, reason, message string) {
@@ -40,25 +30,39 @@ func (f *FarmController) FarmUpdateFailStatus(farm *v1.Farm, eventType, reason, 
 	f.updateLabels(farm, v1.FarmStatusLabelFailed)
 }
 
+func (f *FarmController) IfFailedUpdateFailDeletedStatus(err error, farm *v1.Farm, message string) bool {
+	if err != nil {
+		log.Log.Reason(err).Errorf(message)
+		f.FarmUpdateFailDeleteStatus(farm, "Warning", "FarmDeleteFail", message)
+		return true
+	}
+	return false
+}
+
 func (f *FarmController) FarmUpdateFailDeleteStatus(farm *v1.Farm, eventType, reason, message string) {
+	var err error
 	f.Reconcile.Event.Event(farm.DeepCopyObject(), eventType, reason, message)
 	f.updateLabels(farm, v1.FarmStatusLabelDeleted)
+
+	farm, err = f.Farm().Update(farm)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create delete label on farm %s error %v", farm.Name, err)
+	}
 }
 
-func (f *FarmController) FarmUpdateSuccessStatus(farm *v1.Farm, ipAddress, eventType, reason, message string) {
+func (f *FarmController) FarmUpdateSuccessStatus(farm *v1.Farm, eventType, reason, message string) {
 	f.Reconcile.Event.Event(farm.DeepCopy(), eventType, reason, message)
 	f.updateLabels(farm, v1.FarmStatusLabelSynced)
-	farm.Status.IpAdress = ipAddress
 }
 
-func (f *FarmController) MarkServiceStatusFail(service *corev1.Service, message string) {
-	f.Reconcile.Event.Event(service.DeepCopyObject(), "Warning", "FarmCreatedFail", message)
-	if service.Labels == nil {
-		service.Labels = make(map[string]string)
-	}
-	service.Labels[v1.ServiceStatusLabel] = v1.ServiceStatusLabelFailed
-}
+//func (f *FarmController) markServiceStatusAsFail(service *corev1.Service, message string) {
+//	f.Reconcile.Event.Event(service.DeepCopyObject(), "Warning", "FarmCreatedFail", message)
+//	if service.Labels == nil {
+//		service.Labels = make(map[string]string)
+//	}
+//	service.Labels[v1.ServiceStatusLabel] = v1.ServiceStatusLabelFailed
+//}
 
-func (f *FarmController) UpdateSuccessEventOnService(service *corev1.Service, message string) {
-	f.Reconcile.Event.Event(service.DeepCopyObject(), "Normal", "FarmCreatedSuccess", message)
-}
+//func (f *FarmController) UpdateSuccessEventOnService(service *corev1.Service, message string) {
+//	f.Reconcile.Event.Event(service.DeepCopyObject(), "Normal", "FarmCreatedSuccess", message)
+//}

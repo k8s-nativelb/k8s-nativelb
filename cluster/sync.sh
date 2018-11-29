@@ -37,7 +37,8 @@ until [[ `./cluster/kubectl.sh get ns | grep nativelb | wc -l` -eq 0 ]]; do
     sleep 5
 done
 
-./cluster/kubectl.sh apply -f config/develop/
-./cluster/kubectl.sh apply -f config/ci/
 ./cluster/kubectl.sh apply -f config/crds/
 ./cluster/kubectl.sh apply -f config/rbac/
+./cluster/kubectl.sh create ns nativelb
+./cluster/kubectl.sh apply -f config/develop/
+#./cluster/kubectl.sh apply -f config/ci/

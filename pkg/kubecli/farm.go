@@ -76,6 +76,7 @@ func (c *farm) Update(farm *v1.Farm) (*v1.Farm, error) {
 			return fmt.Errorf("Failed to get latest version of Farm: %v", getErr)
 		}
 
+		result.Labels = farm.Labels
 		result.Spec = farm.Spec
 		result.Status = farm.Status
 		updateErr := c.Client.Update(context.Background(), result)

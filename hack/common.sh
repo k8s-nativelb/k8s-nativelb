@@ -23,7 +23,7 @@ NATIVELB_DIR="$(
 VENDOR_DIR=$NATIVELB_DIR/vendor
 
 
-NATIVELB_PROVIDER=${NATIVELB_PROVIDER:-k8s-multus-1.11.1}
+NATIVELB_PROVIDER=${NATIVELB_PROVIDER:-k8s-multus-1.12.2}
 NATIVELB_NUM_NODES=${NATIVELB_NUM_NODES:-1}
 
 # Use this environment variable to set a custom pkgdir path

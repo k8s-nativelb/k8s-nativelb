@@ -19,7 +19,20 @@ import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 )
 
-func ConvertFarmToGrpcData(farm *v1.Farm) *Data {
+func ConvertFarmsToGrpcDataList(farms []v1.Farm, clusterObject *v1.Cluster, keepaliveState string, priority int32) []*Data {
+	dataList := make([]*Data, 0)
+
+	for _, farm := range farms {
+		data := ConvertFarmToGrpcData(&farm, clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].RouterID)
+		data.KeepalivedState = keepaliveState
+		data.Priority = priority
+		dataList = append(dataList, data)
+	}
+
+	return dataList
+}
+
+func ConvertFarmToGrpcData(farm *v1.Farm, routerID int32) *Data {
 	convertServers := make([]*Server, len(farm.Spec.Servers))
 
 	idx := 0
@@ -42,6 +55,7 @@ func ConvertFarmToGrpcData(farm *v1.Farm) *Data {
 
 		converServer := &Server{BackendConnectionTimeout: server.BackendConnectionTimeout,
 			BackendIdleTimeout: server.BackendIdleTimeout,
+			Port:               server.Port,
 			Balance:            server.Balance,
 			Bind:               server.Bind,
 			ClientIdleTimeout:  server.ClientIdleTimeout,
@@ -55,7 +69,7 @@ func ConvertFarmToGrpcData(farm *v1.Farm) *Data {
 		idx++
 	}
 
-	return &Data{Servers: convertServers}
+	return &Data{FarmName: farm.Name, Namespace: farm.Spec.ServiceNamespace, RouterID: routerID, Servers: convertServers}
 }
 
 func ConvertAgentProtoToK8sAgent(agent *Agent) *v1.Agent {

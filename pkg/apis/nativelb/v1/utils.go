@@ -27,10 +27,17 @@ import (
 )
 
 const (
-	EventRecorderName   = "nativelb"
-	ControllerNamespace = "nativelb"
-	ClusterLabel        = "nativelb.cluster"
-	KeepaliveTime = 30
+	EventRecorderName          = "nativelb"
+	ControllerNamespace        = "nativelb"
+	ClusterLabel               = "nativelb.io/cluster"
+	KeepaliveTime              = 10
+	ResyncServicesInterval     = 10
+	ResyncFailFarms            = 30
+	ResyncCleanRemovedServices = 320
+
+	DaemonsetLabel        = "nativelb.io/daemonset"
+	DaemonsetClusterLabel = "daemonset.nativelb.io/cluster"
+	AgentPodPortLabel     = "daemonset.nativelb.io/port"
 
 	BackendConnectionTimeout = "2s"
 	BackendIdleTimeout       = "10m"
@@ -74,6 +81,7 @@ const (
 	ClusterConnectionStatusFail    = "Failed"
 	ClusterConnectionStatusSuccess = "Synced"
 
+	// TODO: need this is unused need to add this to farm labels
 	FarmStatusLabel        = "native-lb-farm-status"
 	FarmStatusLabelSynced  = "Synced"
 	FarmStatusLabelSyncing = "Syncing"
@@ -101,18 +109,19 @@ var (
 	GrpcTimeout = 30 * time.Second
 )
 
-func configServer(port *corev1.ServicePort, isInternal bool, ipAddr string, discovery Discovery, serverName string, farmName string) (*Server, ServerSpec) {
+func configServer(servicePort *corev1.ServicePort, isInternal bool, ipAddr string, discovery Discovery, serverName string, farmName string) *Server {
 	labelMap := make(map[string]string)
 	labelMap[NativeLBFarmRef] = farmName
-	var bind string
+	var port int32
 	if isInternal {
-		bind = fmt.Sprintf("%s:%d", ipAddr, port.Port)
+		port = servicePort.Port
 	} else {
-		bind = fmt.Sprintf("%s:%d", ipAddr, port.NodePort)
+		port = servicePort.NodePort
 	}
 
-	serverSpec := ServerSpec{Bind: bind,
-		Protocol:                 strings.ToLower(fmt.Sprintf("%s", port.Protocol)),
+	serverSpec := ServerSpec{Bind: ipAddr,
+		Port:                     port,
+		Protocol:                 strings.ToLower(fmt.Sprintf("%s", servicePort.Protocol)),
 		BackendConnectionTimeout: BackendConnectionTimeout,
 		BackendIdleTimeout:       BackendIdleTimeout,
 		ClientIdleTimeout:        ClientIdleTimeout,
@@ -123,7 +132,7 @@ func configServer(port *corev1.ServicePort, isInternal bool, ipAddr string, disc
 
 	serverStatus := ServerStatus{ActiveConnections: 0, RxSecond: 0, RxTotal: 0, TxSecond: 0, TxTotal: 0}
 
-	return &Server{ObjectMeta: metav1.ObjectMeta{Labels: labelMap, Name: serverName, Namespace: ControllerNamespace}, Spec: serverSpec, Status: serverStatus}, serverSpec
+	return &Server{ObjectMeta: metav1.ObjectMeta{Labels: labelMap, Name: serverName, Namespace: ControllerNamespace}, Spec: serverSpec, Status: serverStatus}
 }
 
 func DefaultUdpSpec() UDP {
@@ -145,12 +154,12 @@ func DefaultDiscovery(backendServers []BackendSpec) Discovery {
 func CreateBackends(port *corev1.ServicePort, isInternal bool, backendServers []string, serverName string) ([]Backend, []BackendSpec) {
 	backends := make([]Backend, len(backendServers))
 	backendsSpec := make([]BackendSpec, len(backendServers))
-	backendPort := ""
+	var backendPort int32
 
 	if isInternal {
-		backendPort = fmt.Sprintf("%d", port.TargetPort.IntVal)
+		backendPort = port.TargetPort.IntVal
 	} else {
-		backendPort = fmt.Sprintf("%d", port.NodePort)
+		backendPort = port.NodePort
 	}
 
 	for idx := range backendServers {

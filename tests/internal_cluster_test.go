@@ -11,9 +11,6 @@ import (
 )
 
 var _ = Describe("Internal Cluster", func() {
-	testClient, err := NewTestClient()
-	PanicOnError(err)
-
 	var nginxDeployment *v1.Deployment
 
 	BeforeEach(func() {
@@ -36,7 +33,7 @@ var _ = Describe("Internal Cluster", func() {
 			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-service", Namespace: TestNamespace},
 				Spec: core.ServiceSpec{Selector: SelectorLabel, Ports: ports}}
 
-			clusterIpService, err := testClient.KubeClient.Core().Services(TestNamespace).Create(clusterIpService)
+			clusterIpService, err := testClient.KubeClient.CoreV1().Services(TestNamespace).Create(clusterIpService)
 			Expect(err).NotTo(HaveOccurred())
 			err = WaitForClusterIpService(testClient, clusterIpService)
 			Expect(err).NotTo(HaveOccurred())
@@ -45,7 +42,7 @@ var _ = Describe("Internal Cluster", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 
-			err = testClient.KubeClient.Core().Services(TestNamespace).Delete(clusterIpService.Name, &metav1.DeleteOptions{})
+			err = testClient.KubeClient.CoreV1().Services(TestNamespace).Delete(clusterIpService.Name, &metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -54,12 +51,12 @@ var _ = Describe("Internal Cluster", func() {
 			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-loadbalancer", Namespace: TestNamespace},
 				Spec: core.ServiceSpec{Selector: SelectorLabel, Ports: ports, Type: core.ServiceTypeLoadBalancer}}
 
-			clusterIpService, err := testClient.KubeClient.Core().Services(TestNamespace).Create(clusterIpService)
+			clusterIpService, err := testClient.KubeClient.CoreV1().Services(TestNamespace).Create(clusterIpService)
 			Expect(err).NotTo(HaveOccurred())
 			err = WaitForServiceToBySynced(testClient, clusterIpService)
 			Expect(err).NotTo(HaveOccurred())
 
-			clusterIpService, err = testClient.KubeClient.Core().Services(TestNamespace).Get(clusterIpService.Name, metav1.GetOptions{})
+			clusterIpService, err = testClient.KubeClient.CoreV1().Services(TestNamespace).Get(clusterIpService.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			By("Checking ingress ip address exist")
 			Expect(len(clusterIpService.Status.LoadBalancer.Ingress)).To(Equal(1))

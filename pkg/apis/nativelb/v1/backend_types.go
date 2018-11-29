@@ -27,7 +27,7 @@ import (
 // +k8s:openapi-gen=true
 type BackendSpec struct {
 	Host     string `json:"host"`
-	Port     string `json:"port"`
+	Port     int32  `json:"port"`
 	Priority int    `json:"priority,omitempty"`
 	Weight   int    `json:"weight,omitempty"`
 }

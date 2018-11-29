@@ -113,8 +113,13 @@ func (r *ReconcileEndPoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		service := &corev1.Service{}
 		err := nativeClient.Get(context.TODO(), client.ObjectKey{Namespace: endpoint.Namespace, Name: endpoint.Name}, service)
 		if err == nil && service.Spec.Type == "LoadBalancer" {
-			log.Log.V(2).Infof("Service event, service name: %s from namespace %s", service.Name, service.Namespace)
-			r.serviceController.ReconcileService.UpdateEndpoints(service, endpoint)
+			if status, ok := service.Labels[v1.ServiceStatusLabel]; ok && status == v1.ServiceStatusLabelSynced {
+				log.Log.V(2).Infof("Endpoint event for service name: %s on namespace %s", service.Name, service.Namespace)
+				err = r.serviceController.ReconcileService.UpdateEndpoints(service, endpoint)
+				if err != nil {
+					return reconcile.Result{Requeue: true}, nil
+				}
+			}
 		}
 	}
 	return reconcile.Result{}, nil
