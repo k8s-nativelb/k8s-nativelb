@@ -39,7 +39,7 @@ func (c *agent) Create(agent *v1.Agent) (*v1.Agent, error) {
 		return nil, err
 	}
 
-	err = c.Client.Get(context.Background(), client.ObjectKey{Name: agent.Name, Namespace: v1.ControllerNamespace}, agent)
+	agent, err = c.Get(agent.Name)
 	if err != nil {
 		return nil, err
 	}

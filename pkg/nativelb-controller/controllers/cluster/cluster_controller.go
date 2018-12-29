@@ -19,6 +19,7 @@ package cluster_controller
 import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/kubecli"
+	"github.com/k8s-nativelb/pkg/nativelb-controller/grpc-manager"
 
 	//pb "github.com/k8s-nativelb/pkg/proto"
 	"github.com/k8s-nativelb/pkg/log"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/server"
 )
 
 type ClusterController struct {
@@ -41,11 +41,11 @@ type ClusterController struct {
 	Controller        controller.Controller
 	Reconcile         *Reconcile
 	agentController   *agent_controller.AgentController
-	clusterConnection *server.NativeLBGrpcServer
+	clusterConnection *grpc_manager.NativeLBGrpcManager
 	allocator         map[string]*Allocator
 }
 
-func NewClusterController(nativelbClient kubecli.NativelbClient, agentController *agent_controller.AgentController, clusterConnection *server.NativeLBGrpcServer) (*ClusterController, error) {
+func NewClusterController(nativelbClient kubecli.NativelbClient, agentController *agent_controller.AgentController, clusterConnection *grpc_manager.NativeLBGrpcManager) (*ClusterController, error) {
 	reconcileInstance := newReconciler(nativelbClient)
 	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {

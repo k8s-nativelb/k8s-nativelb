@@ -1,0 +1,32 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nativelb-controller
+  namespace: nativelb
+  labels:
+    control-plane: nativelb-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: nativelb-controller
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        control-plane: nativelb-controller
+    spec:
+      containers:
+        - image: registry:5000/k8s-nativelb/nativelb-controller:latest
+          imagePullPolicy: Always
+          name: controller
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+            requests:
+              cpu: 500m
+              memory: 200Mi
+      terminationGracePeriodSeconds: 10

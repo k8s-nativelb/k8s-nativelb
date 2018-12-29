@@ -16,6 +16,19 @@ limitations under the License.
 
 package main
 
-func main() {
+import (
+	"github.com/k8s-nativelb/pkg/log"
+	"os"
+	"os/signal"
+	"syscall"
+)
 
+func main() {
+	log.Log.Info("Starting nativelb-api server")
+
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+
+	<-stopChan
+	log.Log.Info("Stopped nativelb-api server")
 }

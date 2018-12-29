@@ -18,9 +18,9 @@ _minikube() {
   sudo -E minikube start \
     --vm-driver=none \
     --kubernetes-version=v$CVER
-#    --feature-gates=DevicePlugins=true
 
   minikube update-context
+  sudo chmod 777 $HOME/.kube/config
 }
 
 _oc_cluster() {

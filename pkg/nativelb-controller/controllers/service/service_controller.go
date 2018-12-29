@@ -18,6 +18,7 @@ package service_controller
 
 import (
 	"context"
+	"fmt"
 	"github.com/k8s-nativelb/pkg/kubecli"
 
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"time"
@@ -46,18 +46,6 @@ import (
 type ServiceController struct {
 	Controller       controller.Controller
 	ReconcileService *ReconcileService
-}
-
-func (s *ServiceController) UpdateAllServices() {
-	services := &corev1.ServiceList{}
-	err := s.ReconcileService.GetClient().List(context.Background(), &client.ListOptions{}, services)
-	if err != nil {
-		log.Log.Errorf("Fail to get all services error: %v", err)
-	}
-
-	for _, service := range services.Items {
-		s.ReconcileService.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
-	}
 }
 
 func NewServiceController(nativelbClient kubecli.NativelbClient, farmController *farm_controller.FarmController) (*ServiceController, error) {
@@ -137,27 +125,24 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	log.Log.V(2).Infof("Service event, service name: %s from namespace %s", service.Name, service.Namespace)
-	if r.FarmController.CreateOrUpdateFarm(service, nil) {
+	if r.FarmController.CreateOrUpdateFarm(service) {
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
-			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
-		} else {
-			r.FarmController.UpdateSuccessEventOnService(service, "Successfully create/update service on provider")
+			log.Log.Errorf("failed to update service status error message: %v", err)
+			return reconcile.Result{Requeue: true}, fmt.Errorf("Fail to update service status error message: %v", err)
 		}
 	}
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileService) UpdateEndpoints(service *corev1.Service, endpoint *corev1.Endpoints) {
-	log.Log.V(2).Infof("Service event, service name: %s from namespace %s", service.Name, service.Namespace)
-	if r.FarmController.CreateOrUpdateFarm(service, endpoint) {
+func (r *ReconcileService) UpdateEndpoints(service *corev1.Service, endpoint *corev1.Endpoints) error {
+	if r.FarmController.CreateOrUpdateFarm(service) {
 		_, err := r.kubeClient.CoreV1().Services(service.Namespace).UpdateStatus(service)
 		if err != nil {
-			log.Log.Errorf("Fail to update service status error message: %s", err.Error())
-		} else {
-			r.FarmController.UpdateSuccessEventOnService(service, "Successfully create/update service on provider")
+			return fmt.Errorf("failed to update service status error message: %v", err)
 		}
 	}
+	return nil
 }
 
 func (r *ReconcileService) getServiceFromEndpoint(endpointInstance *corev1.Endpoints) (*corev1.Service, error) {
@@ -165,20 +150,47 @@ func (r *ReconcileService) getServiceFromEndpoint(endpointInstance *corev1.Endpo
 }
 
 func (r *ReconcileService) reSyncProcess() {
-	resyncTick := time.Tick(30 * time.Second)
-
-	labelSelector := labels.Set{}
-	labelSelector[v1.ServiceStatusLabel] = v1.ServiceStatusLabelFailed
+	resyncTick := time.Tick(v1.ResyncServicesInterval * time.Second)
 
 	for range resyncTick {
 		var serviceList corev1.ServiceList
-		err := r.GetClient().List(context.TODO(), &client.ListOptions{LabelSelector: labelSelector.AsSelector()}, &serviceList)
+		err := r.GetClient().List(context.TODO(), &client.ListOptions{}, &serviceList)
 		if err != nil {
-			log.Log.Error("reSyncProcess: Fail to get Service list")
+			log.Log.Error("reSyncProcess: failed to get service list")
 		} else {
 			for _, service := range serviceList.Items {
-				r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
+				if service.Spec.Type == "LoadBalancer" {
+					farmName := fmt.Sprintf("%s-%s", service.Namespace, service.Name)
+					farm, err := r.Farm().Get(farmName)
+					if err != nil {
+						if !errors.IsNotFound(err) {
+							log.Log.Reason(err).Errorf("failed to get farm %s error %v", farmName, err)
+							continue
+						} else {
+							r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
+							continue
+						}
+					}
+
+					if farm.Labels[v1.FarmStatusLabel] == v1.FarmStatusLabelSyncing {
+						continue
+					}
+
+					r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
+				}
 			}
 		}
+	}
+}
+
+func (s *ServiceController) UpdateAllServices() {
+	services := &corev1.ServiceList{}
+	err := s.ReconcileService.GetClient().List(context.Background(), &client.ListOptions{}, services)
+	if err != nil {
+		log.Log.Errorf("failed to get all services error: %v", err)
+	}
+
+	for _, service := range services.Items {
+		s.ReconcileService.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})
 	}
 }

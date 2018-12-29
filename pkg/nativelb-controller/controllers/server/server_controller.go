@@ -43,7 +43,7 @@ type ServerController struct {
 	serverStatsChannel chan pb.ServerStats
 }
 
-func NewServerController(nativelbClient kubecli.NativelbClient, backendController *backend_controller.BackendController, serverStatsChannel chan pb.ServerStats) (*ServerController, error) {
+func NewServerController(nativelbClient kubecli.NativelbClient, backendController *backend_controller.BackendController) (*ServerController, error) {
 	reconcileInstance := newReconciler(nativelbClient)
 	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {
@@ -51,7 +51,7 @@ func NewServerController(nativelbClient kubecli.NativelbClient, backendControlle
 	}
 
 	serverController := &ServerController{Controller: controllerInstance,
-		Reconcile: reconcileInstance, backendController: backendController, serverStatsChannel: serverStatsChannel}
+		Reconcile: reconcileInstance, backendController: backendController}
 
 	return serverController, nil
 }

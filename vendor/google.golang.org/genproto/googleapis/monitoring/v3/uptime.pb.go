@@ -883,8 +883,6 @@ func (m *UptimeCheckIp) GetIpAddress() string {
 }
 
 func init() {
-	proto.RegisterEnum("google.monitoring.v3.UptimeCheckRegion", UptimeCheckRegion_name, UptimeCheckRegion_value)
-	proto.RegisterEnum("google.monitoring.v3.GroupResourceType", GroupResourceType_name, GroupResourceType_value)
 	proto.RegisterType((*InternalChecker)(nil), "google.monitoring.v3.InternalChecker")
 	proto.RegisterType((*UptimeCheckConfig)(nil), "google.monitoring.v3.UptimeCheckConfig")
 	proto.RegisterType((*UptimeCheckConfig_ResourceGroup)(nil), "google.monitoring.v3.UptimeCheckConfig.ResourceGroup")
@@ -894,6 +892,8 @@ func init() {
 	proto.RegisterType((*UptimeCheckConfig_TcpCheck)(nil), "google.monitoring.v3.UptimeCheckConfig.TcpCheck")
 	proto.RegisterType((*UptimeCheckConfig_ContentMatcher)(nil), "google.monitoring.v3.UptimeCheckConfig.ContentMatcher")
 	proto.RegisterType((*UptimeCheckIp)(nil), "google.monitoring.v3.UptimeCheckIp")
+	proto.RegisterEnum("google.monitoring.v3.UptimeCheckRegion", UptimeCheckRegion_name, UptimeCheckRegion_value)
+	proto.RegisterEnum("google.monitoring.v3.GroupResourceType", GroupResourceType_name, GroupResourceType_value)
 }
 
 func init() { proto.RegisterFile("google/monitoring/v3/uptime.proto", fileDescriptor_7ca0e36dfc8221d8) }

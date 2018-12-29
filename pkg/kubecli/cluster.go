@@ -39,7 +39,7 @@ func (c *cluster) Create(cluster *v1.Cluster) (*v1.Cluster, error) {
 		return nil, err
 	}
 
-	err = c.Client.Get(context.Background(), client.ObjectKey{Name: cluster.Name, Namespace: v1.ControllerNamespace}, cluster)
+	cluster, err = c.Get(cluster.Name)
 	if err != nil {
 		return nil, err
 	}

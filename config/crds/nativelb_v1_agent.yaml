@@ -22,19 +22,32 @@ spec:
           type: object
         spec:
           properties:
+            cluster:
+              type: string
             hostName:
               type: string
             ipAddress:
               type: string
+            port:
+              format: int32
+              type: integer
           required:
           - hostName
           - ipAddress
+          - port
+          - cluster
           type: object
         status:
           properties:
+            KeepAlivedPid:
+              format: int64
+              type: integer
             connectionStatus:
               type: string
-            pid:
+            lastUpdate:
+              format: date-time
+              type: string
+            lbPid:
               format: int64
               type: integer
             startTime:

@@ -25,7 +25,8 @@ spec:
             host:
               type: string
             port:
-              type: string
+              format: int32
+              type: integer
             priority:
               format: int64
               type: integer

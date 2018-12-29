@@ -15,3 +15,7 @@ cache/
 crictl
 kubectl
 minikube
+.kubeconfig
+.kubectl
+hack/config-provider-*
+config/develop/temp

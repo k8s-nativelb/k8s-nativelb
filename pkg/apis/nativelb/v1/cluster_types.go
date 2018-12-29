@@ -34,10 +34,16 @@ type ClusterSpec struct {
 // ClusterStatus defines the observed state of Cluster
 // +k8s:openapi-gen=true
 type ClusterStatus struct {
-	Agents           map[string]Agent  `json:"agents,omitempty"`
-	AllocatedIps     map[string]string `json:"allocatedIps,omitempty"`
-	ConnectionStatus string            `json:"connectionStatus"`
-	LastUpdate       metav1.Time       `json:"lastUpdate"`
+	Agents              map[string]*Agent              `json:"agents,omitempty"`
+	AllocatedIps        map[string]string              `json:"allocatedIps,omitempty"`
+	AllocatedNamespaces map[string]*AllocatedNamespace `json:"AllocatedNamespaces,omitempty"`
+	ConnectionStatus    string                         `json:"connectionStatus"`
+	LastUpdate          metav1.Time                    `json:"lastUpdate"`
+}
+
+type AllocatedNamespace struct {
+	RouterID int32    `json:"routerID"`
+	Farms    []string `json:"farms"`
 }
 
 // +genclient

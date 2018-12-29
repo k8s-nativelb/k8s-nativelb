@@ -1,102 +1,129 @@
+/*
+Copyright 2018 Sebastian Sch.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package cluster_controller
 
 import (
 	"fmt"
+
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/log"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//func (c *ClusterController) CreateFarm(farm *v1.Farm,cluster *v1.Cluster) (string, error) {
-//	farmIpAddress, err := c.getIpAddrFromAllocator(farm,cluster)
-//	if err != nil {
-//		log.Log.V(2).Errorf("Fail to allocate Ip address for farm: %s on cluster %s error message: %v", farm.Name, cluster.Name, err)
-//		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
-//		return "", err
-//	}
-//
-//	servers := farm.UpdateServers(cluster.Spec.Internal,farmIpAddress)
-//	err = c.UpdateServerData(farm,servers)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	err = c.clusterConnection.CreateFarmOnCluster(farm,cluster)
-//	if err != nil {
-//		log.Log.Errorf("Fail to create farm %s on cluster %s error %v",farm.Name,cluster.Name,err)
-//		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
-//		return "",err
-//	}
-//
-//	c.updateClusterObject(cluster)
-//	c.clusterUpdateSuccessStatus(cluster, "Normal", "FarmCreateSuccess", fmt.Sprintf("Farm %s-%s was created on cluster", farm.Namespace, farm.Name))
-//	return farmIpAddress, nil
-//}
-
-func (c *ClusterController) UpdateFarm(farm *v1.Farm, cluster *v1.Cluster) (string, error) {
-	farmIpAddress, err := c.getIpAddrFromAllocator(farm, cluster)
-	if err != nil {
-		log.Log.V(2).Errorf("Fail to allocate Ip address for farm: %s on cluster %s error message: %v", farm.Name, cluster.Name, err)
-		c.clusterUpdateFailStatus(cluster, "Warning", "FarmCreateFail", err.Error())
-		return "", err
+func (c *ClusterController) CreateFarm(farm *v1.Farm, cluster *v1.Cluster) error {
+	err := c.allocateIpAddrAndRouterID(farm, cluster)
+	if c.ifUpdateFailedUpdateFailStatus(err, cluster, "FarmCreatedFail", fmt.Sprintf("failed to allocate IP address for farm %s on cluster %s error %v", farm.Name, cluster.Name, err)) {
+		return err
 	}
-	farm.Status.IpAdress = farmIpAddress
 
-	servers := farm.UpdateServers(cluster.Spec.Internal, farm.Status.IpAdress)
+	servers := farm.UpdateServers(cluster.Spec.Internal)
 	err = c.UpdateServerData(farm, servers)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	cluster.Status.AllocatedIps[farm.Status.IpAdress] = farm.Name
-	c.updateClusterObject(cluster)
-
-	err = c.clusterConnection.UpdateFarmOnCluster(farm, cluster)
-	if err != nil {
-		log.Log.V(2).Errorf("Fail to update farm: %s on cluster %s error message: %v", farm.FarmName(), cluster.Name, err)
-		c.clusterUpdateFailStatus(cluster, "Warning", "FarmUpdateFail", err.Error())
-		return "", err
+	err = c.clusterConnection.CreateFarmOnCluster(farm, cluster)
+	if c.ifUpdateFailedUpdateFailStatus(err, cluster, "FarmCreatedFail", fmt.Sprintf("failed to create farm %s on cluster %s error %v", farm.Name, cluster.Name, err)) {
+		return err
 	}
 
-	log.Log.V(2).Infof("successfully updated farm: %s on cluster %s", farm.FarmName(), cluster.Name)
-	c.clusterUpdateSuccessStatus(cluster, "Normal", "FarmUpdateSuccess", fmt.Sprintf("Farm %s-%s was updated on cluster", farm.Namespace, farm.Name))
-	return farm.Status.IpAdress, nil
+	c.updateSuccessStatus(cluster, "Normal", "FarmCreateSuccess", fmt.Sprintf("Farm %s was created on cluster", farm.FarmName()))
+	return nil
+}
+
+func (c *ClusterController) UpdateFarm(farm *v1.Farm, cluster *v1.Cluster) error {
+	err := c.allocateIpAddrAndRouterID(farm, cluster)
+	if c.ifUpdateFailedUpdateFailStatus(err, cluster, "FarmUpdatedFail", fmt.Sprintf("failed to get allocated IP address for farm %s on cluster %s error %v", farm.Name, cluster.Name, err)) {
+		return err
+	}
+
+	servers := farm.UpdateServers(cluster.Spec.Internal)
+	err = c.UpdateServerData(farm, servers)
+	if err != nil {
+		return err
+	}
+
+	err = c.clusterConnection.UpdateFarmOnCluster(farm, cluster)
+	if c.ifUpdateFailedUpdateFailStatus(err, cluster, "FarmUpdatedFail", fmt.Sprintf("failed to update farm %s on cluster %s error %v", farm.Name, cluster.Name, err)) {
+		return err
+	}
+
+	c.updateSuccessStatus(cluster, "Normal", "FarmUpdateSuccess", fmt.Sprintf("Farm %s was updated on cluster", farm.FarmName()))
+	return nil
 }
 
 func (c *ClusterController) DeleteFarm(farm *v1.Farm, cluster *v1.Cluster) error {
 	err := c.clusterConnection.DeleteFarmOnCluster(farm, cluster)
-	if err != nil {
-		log.Log.V(2).Errorf("Fail to remove farm: %s on cluster %s error message: %s", farm.FarmName(), cluster.Name, err.Error())
-		c.clusterUpdateFailStatus(cluster, "Warning", "FarmDeleteFail", err.Error())
+	if c.ifUpdateFailedUpdateFailStatus(err, cluster, "FarmDeletedFail", fmt.Sprintf("failed to remove farm %s on cluster %s error %v", farm.FarmName(), cluster.Name, err)) {
 		return err
 	}
 
-	c.allocator[cluster.Name].Release(farm.Status.IpAdress, cluster)
-	c.updateClusterObject(cluster)
+	err = c.releaseIpAddrAndRouterID(farm, cluster)
+	if err != nil {
+		log.Log.V(2).Errorf("failed to release allocated IP address for farm %s on cluster %s error %v", farm.Name, cluster.Name, err)
+		return err
+	}
 
-	log.Log.V(2).Infof("successfully removed farm: %s on cluster %s", farm.FarmName(), cluster.Name)
-	c.clusterUpdateSuccessStatus(cluster, "Normal", "FarmDeleteSuccess", fmt.Sprintf("Farm %s-%s was deleted on cluster", farm.Namespace, farm.Name))
-
+	c.updateSuccessStatus(cluster, "Normal", "FarmDeleteSuccess", fmt.Sprintf("the farm %s was deleted on cluster", farm.FarmName()))
 	return nil
 }
 
-func (c *ClusterController) getIpAddrFromAllocator(farm *v1.Farm, cluster *v1.Cluster) (string, error) {
-	_, isExist := c.allocator[cluster.Name]
-	if !isExist {
-		allocator, err := NewAllocator(cluster)
+func (c *ClusterController) GetClusterFromService(service *corev1.Service) (*v1.Cluster, error) {
+	var clusterInstance *v1.Cluster
+
+	var err error
+
+	if value, ok := service.ObjectMeta.Annotations[v1.NativeLBAnnotationKey]; ok {
+		clusterInstance, err = c.Cluster().Get(value)
 		if err != nil {
-			return "", fmt.Errorf("Fail to create allocator for cluster %s error %v", cluster.Name, err)
+			if errors.IsNotFound(err) {
+				return nil, fmt.Errorf("provider wasn't found for service %s", service.Name)
+			}
+			return nil, err
 		}
 
-		c.allocator[cluster.Name] = allocator
+	} else {
+		labelSelector := labels.Set{}
+		labelSelector[v1.NativeLBDefaultLabel] = "true"
+		clusterList, err := c.Cluster().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
+		if err != nil {
+			return nil, err
+		}
+
+		if len(clusterList.Items) == 0 {
+			return nil, fmt.Errorf("default provider wans't found")
+		} else if len(clusterList.Items) > 1 {
+			return nil, fmt.Errorf("more then one default provider was found")
+		}
+
+		clusterInstance = &clusterList.Items[0]
 	}
 
-	return c.allocator[cluster.Name].Allocate(farm, cluster)
+	return clusterInstance, nil
 }
 
+// TODO: need to check this function maybe split it to smaller pieces
 func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.ServerData) error {
 	farmName := farm.Name
 	existServersMap := make(map[string]interface{})
@@ -108,7 +135,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 
 	serversList, err := c.Server().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 	if err != nil {
-		log.Log.V(2).Errorf("fail to get a list of servers related to %s farm error: %v", farmName, err)
+		log.Log.Reason(err).Errorf("failed to get a list of servers related to %s farm error %v", farmName, err)
 		return err
 	}
 
@@ -139,6 +166,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 			}
 		}
 
+		farm.Spec.Servers[serverObject.Name] = &serverObject.Spec
 		ownerRef := []metav1.OwnerReference{{Name: serverObject.Name, APIVersion: v1.SchemeGroupVersion.Version, Kind: "Server", UID: serverObject.UID}}
 		delete(existServersMap, serverObject.Name)
 
@@ -149,7 +177,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 
 		backendsList, err := c.Backend().List(&client.ListOptions{LabelSelector: backendLabelSelector.AsSelector()})
 		if err != nil {
-			log.Log.V(2).Errorf("fail to get a list of backends related to %s server error: %v", serverObject.Name, err)
+			log.Log.Reason(err).Errorf("failed to get a list of backends related to %s server error %v", serverObject.Name, err)
 			return err
 		}
 
@@ -184,7 +212,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 		for deletedBackendName := range existBackendsMap {
 			err = c.Backend().Delete(deletedBackendName)
 			if err != nil {
-				log.Log.Errorf("Fail to delete backend %s error: %v", deletedBackendName, err)
+				log.Log.Reason(err).Errorf("failed to delete backend %s error %v", deletedBackendName, err)
 				return err
 			}
 		}
@@ -193,42 +221,10 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 	for deletedServerName := range existServersMap {
 		err = c.Server().Delete(deletedServerName)
 		if err != nil {
-			log.Log.Errorf("Fail to delete server %s error: %v", deletedServerName, err)
+			log.Log.Reason(err).Errorf("failed to delete server %s error %v", deletedServerName, err)
 			return err
 		}
+		delete(farm.Spec.Servers, deletedServerName)
 	}
-
-	return nil
-}
-
-func (c *ClusterController) updateLabels(cluster *v1.Cluster, status string) {
-	if cluster.Labels == nil {
-		cluster.Labels = make(map[string]string)
-	}
-	cluster.Status.ConnectionStatus = status
-	cluster.Status.LastUpdate = metav1.Now()
-	cluster, err := c.Cluster().Update(cluster)
-	if err != nil {
-		log.Log.Errorf("Fail to update labels on cluster %s error: %v", cluster.Name, err)
-	}
-}
-
-func (c *ClusterController) clusterUpdateFailStatus(cluster *v1.Cluster, eventType, reason, message string) {
-	c.Reconcile.Event.Event(cluster.DeepCopyObject(), eventType, reason, message)
-	c.updateLabels(cluster, v1.ClusterConnectionStatusFail)
-}
-
-func (c *ClusterController) clusterUpdateSuccessStatus(cluster *v1.Cluster, eventType, reason, message string) {
-	c.Reconcile.Event.Event(cluster.DeepCopy(), eventType, reason, message)
-	c.updateLabels(cluster, v1.ClusterConnectionStatusSuccess)
-}
-
-func (c *ClusterController) updateClusterObject(cluster *v1.Cluster) error {
-	cluster, err := c.Cluster().Update(cluster)
-	if err != nil {
-		log.Log.Errorf("fail to update cluster %s error %v", cluster.Name, err)
-		return err
-	}
-
 	return nil
 }

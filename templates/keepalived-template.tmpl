@@ -1,0 +1,39 @@
+global_defs {
+  vrrp_version 2
+}
+
+{{range $k,$v := .}}
+
+vrrp_instance {{ $k }} {
+  state {{$v.State}}
+  interface {{ $v.Iface }}
+  virtual_router_id {{ $v.RouterID }}
+  priority {{ $v.Priority }}
+  nopreempt
+  advert_int 1
+
+  track_interface {
+    {{ $v.Iface }}
+  }
+
+  virtual_ipaddress {
+    {{ $v.MainVip }}
+  }
+
+  virtual_ipaddress_excluded { {{ range $v.SecVips }}
+      {{ . }}{{ end }}
+  }
+
+  track_script {
+    check_loadbalancer
+  }
+}
+
+{{end}}
+
+# Script used to check if loadbalancer process is running
+vrrp_script check_loadbalancer {
+script "killall -0 haproxy"
+interval 2
+weight 2
+}

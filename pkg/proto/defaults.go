@@ -16,8 +16,6 @@ limitations under the License.
 package proto
 
 const (
-	AgentCreateCommand = "create"
-	AgentUpdateCommand = "update"
-	AgentDeleteCommand = "delete"
-	AgentKeepAlive     = "keepalive"
+	AgentNewStatus    = "new"
+	AgentSyncedStatus = "synced"
 )

@@ -1,14 +1,20 @@
 #!/bin/bash
 
+make docker-build
+
 kubectl apply -f config/crds/
-kubectl apply -f config/samples/cluster_internal_develop.yaml
-kubectl apply -f config/rbac/rbac_role_binding.yaml
-kubectl apply -f config/controller/nativelb-controller.yaml
+kubectl apply -f config/rbac/
+kubectl create ns nativelb
+kubectl apply -f config/develop/
+
+sleep 10
 
 timeout 2m ci/wait-pods-ok
 
-kubectl get pod --all-namespaces -o wide
+kubectl get all --all-namespaces -o wide
 
 kubectl get events --all-namespaces
 
 kubectl get nodes -o wide
+
+docker ps -a
