@@ -40,7 +40,8 @@ spec:
                       host:
                         type: string
                       port:
-                        type: string
+                        format: int32
+                        type: integer
                       priority:
                         format: int64
                         type: integer
@@ -78,6 +79,9 @@ spec:
             maxConnections:
               format: int64
               type: integer
+            port:
+              format: int32
+              type: integer
             protocol:
               type: string
             udp:
@@ -91,6 +95,7 @@ spec:
               type: object
           required:
           - bind
+          - port
           - protocol
           - balance
           - maxConnections

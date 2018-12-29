@@ -29,17 +29,13 @@ func (n *nativeLB) Server() ServerInterface {
 	return &server{n.Client}
 }
 
-type server struct {
-	client.Client
-}
-
 func (c *server) Create(server *v1.Server) (*v1.Server, error) {
 	err := c.Client.Create(context.Background(), server)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.Client.Get(context.Background(), client.ObjectKey{Name: server.Name, Namespace: v1.ControllerNamespace}, server)
+	server, err = c.Get(server.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +59,10 @@ func (c *server) Get(name string) (*v1.Server, error) {
 	}
 
 	return nil, err
+}
+
+type server struct {
+	client.Client
 }
 
 func (c *server) Update(server *v1.Server) (*v1.Server, error) {

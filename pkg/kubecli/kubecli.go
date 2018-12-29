@@ -16,6 +16,8 @@ limitations under the License.
 package kubecli
 
 import (
+	"github.com/k8s-nativelb/pkg/apis"
+	"github.com/k8s-nativelb/pkg/log"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -36,6 +38,14 @@ func GetNativelbClient() (NativelbClient, error) {
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	log.Log.Infof("Registering Components.")
+
+	// Setup Scheme for all resources
+	schema := mgr.GetScheme()
+	if err := apis.AddToScheme(schema); err != nil {
+		panic(err)
 	}
 
 	return &nativeLB{Manager: mgr, Client: mgr.GetClient(), KubeConfig: kubeClient}, nil

@@ -149,6 +149,7 @@ function setupDropdownPlayground() {
     button.removeClass('active');
     div.hide();
   });
+  button.show();
   $('#menu').css('min-width', '+=60');
 }
 
@@ -325,28 +326,6 @@ function addPermalinks() {
     var el = $(this);
     // Add the anchor to the "dt" element.
     addPermalink(el, el.find("> dt").first());
-  });
-}
-
-$(".js-expandAll").click(function() {
-  if ($(this).hasClass("collapsed")) {
-    toggleExamples('toggle');
-    $(this).text("(Collapse All)");
-  } else {
-    toggleExamples('toggleVisible');
-    $(this).text("(Expand All)");
-  }
-  $(this).toggleClass("collapsed")
-});
-
-function toggleExamples(className) {
-  // We need to explicitly iterate through divs starting with "example_"
-  // to avoid toggling Overview and Index collapsibles.
-  $("[id^='example_']").each(function() {
-    // Check for state and click it only if required.
-    if ($(this).hasClass(className)) {
-      $(this).find('.toggleButton').first().click();
-    }
   });
 }
 

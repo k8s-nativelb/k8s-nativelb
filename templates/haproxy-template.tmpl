@@ -1,0 +1,41 @@
+global
+    log 127.0.0.1   local0
+    log 127.0.0.1   local1 notice
+    #log loghost    local0 info
+    maxconn 4096
+    #chroot /usr/share/haproxy
+    user haproxy
+    group haproxy
+    daemon
+    #debug
+    #quiet
+    stats socket /run/haproxy.sock mode 660 level admin
+    stats timeout 2m # Wait up to 2 minutes for input
+
+defaults
+    log                     global
+    mode                    tcp
+    option                  tcplog
+    option                  dontlognull
+    option http-server-close
+    option                  redispatch
+    retries                 3
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout check           10s
+    maxconn                 3000
+
+
+
+{{range $farmKey,$farmValue := .}}
+{{ range $idx,$server := $farmValue.Servers }}
+listen {{$farmValue.FarmName}}-{{$server.Bind}}-{{$server.Port}}
+    bind {{$server.Bind}}:{{$server.Port}}
+    mode tcp
+    balance roundrobin
+{{ range $backendIdx,$backend := $server.Discovery.BackendSpec }}    server {{ $backend.Host }}:{{ $backend.Port }} {{ $backend.Host }}:{{ $backend.Port }}
+{{end}}
+{{end}}
+{{end}}

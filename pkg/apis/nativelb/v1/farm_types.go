@@ -20,6 +20,7 @@ import (
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -36,10 +37,8 @@ type FarmSpec struct {
 
 // FarmStatus defines the observed state of Farm
 type FarmStatus struct {
-	IpAdress         string      `json:"ipAdress,omitempty"`
-	NodeList         []string    `json:"nodeList,omitempty"`
-	ConnectionStatus string      `json:"connectionStatus,omitempty"`
-	LastUpdate       metav1.Time `json:"lastUpdate,omitempty"`
+	IpAdress string   `json:"ipAdress,omitempty"`
+	NodeList []string `json:"nodeList,omitempty"`
 }
 
 // +genclient
@@ -78,7 +77,7 @@ type ServerData struct {
 	Backends []Backend
 }
 
-func (f *Farm) UpdateServers(isInternal bool, ipAddr string) []ServerData {
+func (f *Farm) UpdateServers(isInternal bool) []ServerData {
 	servers := make([]ServerData, len(f.Spec.Ports))
 
 	nodeList := f.Status.NodeList
@@ -90,16 +89,15 @@ func (f *Farm) UpdateServers(isInternal bool, ipAddr string) []ServerData {
 		if port.Name != "" {
 			portName = port.Name
 		} else {
-			portName = fmt.Sprintf("%s-%d", port.Protocol, port.Port)
+			portName = strings.ToLower(fmt.Sprintf("%s-%d", port.Protocol, port.Port))
 		}
 
 		serverName := fmt.Sprintf("%s-%s", f.Name, portName)
 		backends, backendsSpec := CreateBackends(&port, isInternal, nodeList, serverName)
 		discovery := DefaultDiscovery(backendsSpec)
 
-		server, serverSpec := configServer(&port, isInternal, ipAddr, discovery, serverName, f.Name)
+		server := configServer(&port, isInternal, f.Status.IpAdress, discovery, serverName, f.Name)
 
-		f.Spec.Servers[portName] = &serverSpec
 		servers[idx] = ServerData{Server: server, Backends: backends}
 	}
 

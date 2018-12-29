@@ -27,6 +27,7 @@ import (
 // +k8s:openapi-gen=true
 type ServerSpec struct {
 	Bind                     string      `json:"bind"`
+	Port                     int32       `json:"port"`
 	Protocol                 string      `json:"protocol"`
 	UDP                      UDP         `json:"udp,omitempty"`
 	Balance                  string      `json:"balance"`

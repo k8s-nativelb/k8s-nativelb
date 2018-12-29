@@ -38,13 +38,9 @@ var (
 	autoCertCacheBucket = flag.String("autocert-bucket", "", "if non-empty, the Google Cloud Storage bucket in which to store the LetsEncrypt cache")
 )
 
-// Hooks that are set non-nil in cert.go if the "autocert" build tag
-// is used.
-var (
-	certInit    func()
-	runHTTPS    func(http.Handler) error
-	wrapHTTPMux func(http.Handler) http.Handler
-)
+// runHTTPS, if non-nil, specifies the function to serve HTTPS.
+// It is set non-nil in cert.go with the "autocert" build tag.
+var runHTTPS func(http.Handler) error
 
 func main() {
 	flag.Parse()
@@ -60,10 +56,6 @@ func main() {
 		log.Fatalf("Unknown %v value: %q", k, os.Getenv(k))
 	}
 
-	if certInit != nil {
-		certInit()
-	}
-
 	p := &Proxy{builder: b}
 	go p.run()
 	mux := newServeMux(p)
@@ -73,11 +65,7 @@ func main() {
 	errc := make(chan error, 1)
 
 	go func() {
-		var httpMux http.Handler = mux
-		if wrapHTTPMux != nil {
-			httpMux = wrapHTTPMux(httpMux)
-		}
-		errc <- http.ListenAndServe(":8080", httpMux)
+		errc <- http.ListenAndServe(":8080", mux)
 	}()
 	if *autoCertDomain != "" {
 		if runHTTPS == nil {
@@ -408,7 +396,7 @@ func (h httpsOnlyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("X-Appengine-Https") == "on" || r.Header.Get("X-Forwarded-Proto") == "https" ||
 		(!isProxiedReq(r) && r.TLS != nil) {
 		// Only set this header when we're actually in production.
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; preload")
 	}
 	h.h.ServeHTTP(w, r)
 }

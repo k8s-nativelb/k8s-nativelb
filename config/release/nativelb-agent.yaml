@@ -1,0 +1,36 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nativelb-agent
+  namespace: nativelb
+  labels:
+    nativelb.io/cluster: cluster-internal
+spec:
+  selector:
+    matchLabels:
+      nativelb.io/cluster: cluster-internal
+  template:
+    metadata:
+      labels:
+        control-plane: nativelb-agent
+        daemonset.nativelb.io/port: "8000"
+    spec:
+      hostNetwork: true
+      containers:
+        - name: agent
+          image: quay.io/k8s-nativelb/nativelb-agent:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            add: ["NET_ADMIN","SYS_MODULE"]
+            privileged: true
+          env:
+            - name: CONTROL_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CONTROL_PORT
+              value: "8000"
+            - name: CLUSTER_NAME
+              value: "cluster-internal"
+      terminationGracePeriodSeconds: 30

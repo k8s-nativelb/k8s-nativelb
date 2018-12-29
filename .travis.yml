@@ -5,7 +5,7 @@ services:
 - docker
 
 env:
-- BUILDER_NAME="k8s-nativelb/${TRAVIS_JOB_ID}builder" CPLATFORM=minikube CDIST=kubernetes CVER=1.11.3
+- BUILDER_NAME="k8s-nativelb/${TRAVIS_JOB_ID}builder" CPLATFORM=minikube CDIST=kubernetes CVER=1.12.2
 
 #jobs:
 #  include:
@@ -37,8 +37,8 @@ before_script:
 
 script:
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run make. Please run it and commit the changes"; git status --porcelain; false; fi
-- timeout 10m bash -x test.sh
-- timeout 20m bash -x func-test.sh
+- timeout 10m bash -x hack/run.sh test
+- timeout 20m bash -x hack/run.sh functest
 
 deploy:
 - provider: script

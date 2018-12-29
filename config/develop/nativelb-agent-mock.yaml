@@ -1,0 +1,31 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nativelb-agent-mock
+  namespace: nativelb
+  labels:
+    nativelb.io/cluster: cluster-sample-daemonset
+spec:
+  selector:
+    matchLabels:
+      nativelb.io/daemonset: nativelb-agent-mock
+  template:
+    metadata:
+      labels:
+        nativelb.io/daemonset: nativelb-agent-mock
+        daemonset.nativelb.io/port: "8000"
+    spec:
+      containers:
+        - name: agent
+          image: registry:5000/k8s-nativelb/nativelb-agent-mock:latest
+          imagePullPolicy: Always
+          env:
+            - name: CONTROL_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CONTROL_PORT
+              value: "8000"
+            - name: CLUSTER_NAME
+              value: "cluster-sample-daemonset"
