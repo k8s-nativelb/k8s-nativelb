@@ -5,7 +5,37 @@ make docker-build
 kubectl apply -f config/crds/
 kubectl apply -f config/rbac/
 kubectl create ns nativelb
-kubectl apply -f config/develop/
+kubectl apply -f config/ci/
+
+# Make sure all containers are ready
+while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
+    echo "Waiting for all containers to become ready ..."
+    kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
+    sleep 10
+done
+
+kubectl get pods -n nativelb -o'custom-columns=status:status.podIP,metadata:metadata.name' --no-headers | grep nativelb-agent-cluster | while read -r line
+do
+    ipaddr=`echo $line | awk '{print $1}'`
+    name=`echo $line | awk '{print $2}'`
+
+    # Create agent object.
+    cat << EOF | kubectl create -f - > /dev/null 2>&1
+apiVersion: k8s.native-lb/v1
+kind: Agent
+metadata:
+  name: $name
+  namespace: nativelb
+  labels:
+    nativelb.io/cluster: cluster-sample-cluster
+spec:
+  hostName: $name
+  ipAddress: $ipaddr
+  port: 8000
+  cluster: cluster-sample-cluster
+
+EOF
+done
 
 sleep 10
 

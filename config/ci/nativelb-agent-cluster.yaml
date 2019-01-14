@@ -1,0 +1,44 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nativelb-agent-cluster
+  namespace: nativelb
+  labels:
+    k8s.nativelb.io/cluster: cluster-sample-cluster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      k8s.nativelb.io/daemonset: nativelb-agent-cluster
+  template:
+    metadata:
+      labels:
+        k8s.nativelb.io/daemonset: nativelb-agent-cluster
+        daemonset.nativelb.io/port: "8000"
+    spec:
+      containers:
+        - name: agent
+          image: quay.io/k8s-nativelb/nativelb-agent:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN","SYS_MODULE"]
+            privileged: true
+          env:
+            - name: CONTROL_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CONTROL_PORT
+              value: "8000"
+            - name: CLUSTER_NAME
+              value: "cluster-sample-cluster"
+          volumeMounts:
+            - name: bind
+              mountPath: /var/proc/sys/net/ipv4/ip_nonlocal_bind
+      volumes:
+        - name: bind
+          hostPath:
+            path: /proc/sys/net/ipv4/ip_nonlocal_bind
+      terminationGracePeriodSeconds: 15
