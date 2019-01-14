@@ -11,10 +11,11 @@ kind: Cluster
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
-    k8s.nativelb.default: "true"
+    k8s.nativelb.io/default: "true"
   name: cluster-sample-internal
   namespace: nativelb
 spec:
   default: true
   internal: true
-  ipRange: "10.0.0.0/24"
+  subnet: "10.0.0.0/24"
+

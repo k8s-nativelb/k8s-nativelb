@@ -5,24 +5,25 @@ metadata:
   name: nativelb-agent
   namespace: nativelb
   labels:
-    nativelb.io/cluster: cluster-internal
+    k8s.nativelb.io/cluster: cluster-sample-internal
 spec:
   selector:
     matchLabels:
-      nativelb.io/cluster: cluster-internal
+      k8s.nativelb.io/daemonset: nativelb-agent
   template:
     metadata:
       labels:
-        control-plane: nativelb-agent
+        k8s.nativelb.io/daemonset: nativelb-agent
         daemonset.nativelb.io/port: "8000"
     spec:
       hostNetwork: true
       containers:
         - name: agent
-          image: quay.io/k8s-nativelb/nativelb-agent:latest
-          imagePullPolicy: IfNotPresent
+          image: registry:5000/k8s-nativelb/nativelb-agent:latest
+          imagePullPolicy: Always
           securityContext:
-            add: ["NET_ADMIN","SYS_MODULE"]
+            capabilities:
+              add: ["NET_ADMIN","SYS_MODULE"]
             privileged: true
           env:
             - name: CONTROL_IP
@@ -32,5 +33,12 @@ spec:
             - name: CONTROL_PORT
               value: "8000"
             - name: CLUSTER_NAME
-              value: "cluster-internal"
-      terminationGracePeriodSeconds: 30
+              value: "cluster-sample-internal"
+          volumeMounts:
+            - name: bind
+              mountPath: /var/proc/sys/net/ipv4/ip_nonlocal_bind
+      volumes:
+        - name: bind
+          hostPath:
+            path: /proc/sys/net/ipv4/ip_nonlocal_bind
+      terminationGracePeriodSeconds: 15

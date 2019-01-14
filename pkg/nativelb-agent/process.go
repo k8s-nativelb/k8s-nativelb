@@ -23,9 +23,22 @@ import (
 )
 
 func (n *NativelbAgent) UpdateAndReload(data *Data) error {
-	err := n.loadBalancerController.UpdateFarm(data)
-	if err != nil {
-		return fmt.Errorf("failed to update loadbalancer configuration error %v", err)
+	if data.Servers == nil || len(data.Servers) == 0 {
+		log.Log.Info("no servers for this farm")
+		return nil
+	}
+
+	var err error
+	if IsTCPFarm(data) {
+		err = n.loadBalancerController.UpdateFarm(data)
+		if err != nil {
+			return fmt.Errorf("failed to update loadbalancer configuration error %v", err)
+		}
+	} else {
+		err = n.udpLoadBalancerController.UpdateFarm(data)
+		if err != nil {
+			return fmt.Errorf("failed to update loadbalancer configuration error %v", err)
+		}
 	}
 
 	err = n.keepalivedController.NewFarmForInstance(data)
@@ -37,9 +50,22 @@ func (n *NativelbAgent) UpdateAndReload(data *Data) error {
 }
 
 func (n *NativelbAgent) DeleteAndReload(data *Data) error {
-	err := n.loadBalancerController.RemoveFarm(data)
-	if err != nil {
-		return fmt.Errorf("failed to remove loadbalancer configuration error %v", err)
+	if data.Servers == nil || len(data.Servers) == 0 {
+		log.Log.Info("no servers for this farm")
+		return nil
+	}
+
+	var err error
+	if IsTCPFarm(data) {
+		err = n.loadBalancerController.RemoveFarm(data)
+		if err != nil {
+			return fmt.Errorf("failed to remove loadbalancer configuration error %v", err)
+		}
+	} else {
+		err = n.udpLoadBalancerController.RemoveFarm(data)
+		if err != nil {
+			return fmt.Errorf("failed to remove loadbalancer configuration error %v", err)
+		}
 	}
 
 	err = n.keepalivedController.DeleteFarmInInstance(data)
@@ -57,6 +83,12 @@ func (n *NativelbAgent) LoadInitToEngines(data *InitAgentData) error {
 		return err
 	}
 
+	err = n.udpLoadBalancerController.LoadInitData(data)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to init loadbalancer with data %v error %v", *data, err)
+		return err
+	}
+
 	err = n.keepalivedController.LoadInitData(data)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to init keepalived with data %v error %v", *data, err)
@@ -68,12 +100,23 @@ func (n *NativelbAgent) LoadInitToEngines(data *InitAgentData) error {
 		return fmt.Errorf("failed to write loadbalancer configuration error %v", err)
 	}
 
+	err = n.udpLoadBalancerController.WriteConfig()
+	if err != nil {
+		return fmt.Errorf("failed to write loadbalancer configuration error %v", err)
+	}
+
 	err = n.keepalivedController.WriteConfig()
 	if err != nil {
 		return fmt.Errorf("failed to write keepalived configuration error %v", err)
 	}
 
 	err = n.loadBalancerController.StartEngine()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to start loadbalancer engine error %v", err)
+		return err
+	}
+
+	err = n.udpLoadBalancerController.StartEngine()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to start loadbalancer engine error %v", err)
 		return err
@@ -94,12 +137,22 @@ func (n *NativelbAgent) reload() error {
 		return fmt.Errorf("failed to write loadbalancer configuration error %v", err)
 	}
 
+	err = n.udpLoadBalancerController.WriteConfig()
+	if err != nil {
+		return fmt.Errorf("failed to write loadbalancer configuration error %v", err)
+	}
+
 	err = n.keepalivedController.WriteConfig()
 	if err != nil {
 		return fmt.Errorf("failed to write keepalived configuration error %v", err)
 	}
 
 	err = n.loadBalancerController.ReloadEngine()
+	if err != nil {
+		return fmt.Errorf("failed to reload loadbalancer engine error %v", err)
+	}
+
+	err = n.udpLoadBalancerController.ReloadEngine()
 	if err != nil {
 		return fmt.Errorf("failed to reload loadbalancer engine error %v", err)
 	}
@@ -114,5 +167,6 @@ func (n *NativelbAgent) reload() error {
 
 func (n *NativelbAgent) StopEngines() {
 	n.loadBalancerController.StopEngine()
+	n.udpLoadBalancerController.StopEngine()
 	n.keepalivedController.StopEngine()
 }

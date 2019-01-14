@@ -4,9 +4,10 @@
 
 // This program takes an HTML file and outputs a corresponding article file in
 // present format. See: golang.org/x/tools/present
-package main // import "golang.org/x/tools/cmd/html2article"
+package main
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"flag"
@@ -38,9 +39,7 @@ func convert(w io.Writer, r io.Reader) error {
 	}
 
 	style := find(root, isTag(atom.Style))
-	if err := parseStyles(style); err != nil {
-		log.Printf("couldn't parse all styles: %v", err)
-	}
+	parseStyles(style)
 
 	body := find(root, isTag(atom.Body))
 	if body == nil {
@@ -61,44 +60,59 @@ const (
 
 var cssRules = make(map[string]Style)
 
-func parseStyles(style *html.Node) error {
+func parseStyles(style *html.Node) {
 	if style == nil || style.FirstChild == nil {
-		return errors.New("couldn't find styles")
+		log.Println("couldn't find styles")
+		return
 	}
+	s := bufio.NewScanner(strings.NewReader(style.FirstChild.Data))
 
-	styles := style.FirstChild.Data
-	readUntil := func(end rune) (string, bool) {
-		i := strings.IndexRune(styles, end)
-		if i < 0 {
-			return "", false
+	findRule := func(b []byte, atEOF bool) (advance int, token []byte, err error) {
+		if i := bytes.Index(b, []byte("{")); i >= 0 {
+			token = bytes.TrimSpace(b[:i])
+			advance = i
 		}
-		s := styles[:i]
-		styles = styles[i:]
-		return s, true
+		return
+	}
+	findBody := func(b []byte, atEOF bool) (advance int, token []byte, err error) {
+		if len(b) == 0 {
+			return
+		}
+		if b[0] != '{' {
+			err = fmt.Errorf("expected {, got %c", b[0])
+			return
+		}
+		if i := bytes.Index(b, []byte("}")); i < 0 {
+			err = fmt.Errorf("can't find closing }")
+			return
+		} else {
+			token = b[1:i]
+			advance = i + 1
+		}
+		return
 	}
 
-	for {
-		sel, ok := readUntil('{')
-		if !ok && sel == "" {
+	s.Split(findRule)
+	for s.Scan() {
+		rule := s.Text()
+		s.Split(findBody)
+		if !s.Scan() {
 			break
-		} else if !ok {
-			return fmt.Errorf("could not parse selector %q", styles)
 		}
-
-		value, ok := readUntil('}')
-		if !ok {
-			return fmt.Errorf("couldn't parse style body for %s", sel)
-		}
+		b := strings.ToLower(s.Text())
 		switch {
-		case strings.Contains(value, "italic"):
-			cssRules[sel] = Italic
-		case strings.Contains(value, "bold"):
-			cssRules[sel] = Bold
-		case strings.Contains(value, "Consolas") || strings.Contains(value, "Courier New"):
-			cssRules[sel] = Code
+		case strings.Contains(b, "italic"):
+			cssRules[rule] = Italic
+		case strings.Contains(b, "bold"):
+			cssRules[rule] = Bold
+		case strings.Contains(b, "Consolas") || strings.Contains(b, "Courier New"):
+			cssRules[rule] = Code
 		}
+		s.Split(findRule)
 	}
-	return nil
+	if err := s.Err(); err != nil {
+		log.Println(err)
+	}
 }
 
 var newlineRun = regexp.MustCompile(`\n\n+`)
@@ -209,7 +223,7 @@ func text(n *html.Node) string {
 			}
 			// Use original url for Google Docs redirections.
 			if u, err := url.Parse(href); err != nil {
-				log.Printf("parsing url %q: %v", href, err)
+				log.Println("parsing url %q: %v", href, err)
 			} else if u.Host == "www.google.com" && u.Path == "/url" {
 				href = u.Query().Get("q")
 			}
@@ -298,6 +312,17 @@ func hasStyle(s Style) selector {
 	}
 }
 
+func hasAttr(key, val string) selector {
+	return func(n *html.Node) bool {
+		for _, a := range n.Attr {
+			if a.Key == key && a.Val == val {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 func attr(node *html.Node, key string) (value string) {
 	for _, attr := range node.Attr {
 		if attr.Key == key {
@@ -305,6 +330,16 @@ func attr(node *html.Node, key string) (value string) {
 		}
 	}
 	return ""
+}
+
+func findAll(node *html.Node, fn selector) (nodes []*html.Node) {
+	walk(node, func(n *html.Node) bool {
+		if fn(n) {
+			nodes = append(nodes, n)
+		}
+		return true
+	})
+	return
 }
 
 func find(n *html.Node, fn selector) *html.Node {

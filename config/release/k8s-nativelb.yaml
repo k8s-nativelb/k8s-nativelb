@@ -1,0 +1,429 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: nativelb
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: null
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: nativelb
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: agents.k8s.native-lb
+spec:
+  group: k8s.native-lb
+  names:
+    kind: Agent
+    plural: agents
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            cluster:
+              type: string
+            hostName:
+              type: string
+            ipAddress:
+              type: string
+            port:
+              format: int32
+              type: integer
+          required:
+            - hostName
+            - ipAddress
+            - port
+            - cluster
+          type: object
+        status:
+          properties:
+            KeepAlivedPid:
+              format: int64
+              type: integer
+            connectionStatus:
+              type: string
+            lastUpdate:
+              format: date-time
+              type: string
+            lbPid:
+              format: int64
+              type: integer
+            startTime:
+              type: string
+            time:
+              type: string
+            uptime:
+              format: int64
+              type: integer
+            version:
+              type: string
+          type: object
+      required:
+        - spec
+  version: v1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: backends.k8s.native-lb
+spec:
+  group: k8s.native-lb
+  names:
+    kind: Backend
+    plural: backends
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            host:
+              type: string
+            port:
+              format: int32
+              type: integer
+            priority:
+              format: int64
+              type: integer
+            weight:
+              format: int64
+              type: integer
+          required:
+            - host
+            - port
+          type: object
+        status:
+          properties:
+            activeConnections:
+              format: int64
+              type: integer
+            live:
+              type: boolean
+            refusedConnections:
+              format: int64
+              type: integer
+            rx:
+              format: int64
+              type: integer
+            rxSecond:
+              format: int64
+              type: integer
+            totalConnections:
+              format: int64
+              type: integer
+            tx:
+              format: int64
+              type: integer
+            txSecond:
+              format: int64
+              type: integer
+          required:
+            - live
+            - totalConnections
+            - activeConnections
+            - refusedConnections
+            - rx
+            - tx
+            - rxSecond
+            - txSecond
+          type: object
+      required:
+        - spec
+  version: v1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: clusters.k8s.native-lb
+spec:
+  group: k8s.native-lb
+  names:
+    kind: Cluster
+    plural: clusters
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            default:
+              type: boolean
+            internal:
+              type: boolean
+            ipRange:
+              type: string
+          required:
+            - ipRange
+          type: object
+        status:
+          properties:
+            AllocatedNamespaces:
+              type: object
+            agents:
+              type: object
+            allocatedIps:
+              type: object
+            connectionStatus:
+              type: string
+            lastUpdate:
+              format: date-time
+              type: string
+          required:
+            - connectionStatus
+            - lastUpdate
+          type: object
+  version: v1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: farms.k8s.native-lb
+spec:
+  group: k8s.native-lb
+  names:
+    kind: Farm
+    plural: farms
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            cluster:
+              type: string
+            ports:
+              items:
+                type: object
+              type: array
+            servers:
+              type: object
+            serviceName:
+              type: string
+            serviceNamespace:
+              type: string
+          required:
+            - serviceName
+            - serviceNamespace
+            - cluster
+            - ports
+            - servers
+          type: object
+        status:
+          properties:
+            ipAdress:
+              type: string
+            nodeList:
+              items:
+                type: string
+              type: array
+          type: object
+  version: v1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: servers.k8s.native-lb
+spec:
+  group: k8s.native-lb
+  names:
+    kind: Server
+    plural: servers
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            backendConnectionTimeout:
+              type: string
+            backendIdleTimeout:
+              type: string
+            balance:
+              type: string
+            bind:
+              type: string
+            clientIdleTimeout:
+              type: string
+            discovery:
+              properties:
+                backend:
+                  items:
+                    properties:
+                      host:
+                        type: string
+                      port:
+                        format: int32
+                        type: integer
+                      priority:
+                        format: int64
+                        type: integer
+                      weight:
+                        format: int64
+                        type: integer
+                    required:
+                      - host
+                      - port
+                    type: object
+                  type: array
+                kind:
+                  type: string
+              required:
+                - kind
+                - backend
+              type: object
+            healthCheck:
+              properties:
+                fails:
+                  format: int64
+                  type: integer
+                interval:
+                  type: string
+                kind:
+                  type: string
+                passes:
+                  format: int64
+                  type: integer
+                pingTimeoutDuration:
+                  type: string
+                timeout:
+                  type: string
+              type: object
+            maxConnections:
+              format: int64
+              type: integer
+            port:
+              format: int32
+              type: integer
+            protocol:
+              type: string
+            udp:
+              properties:
+                maxRequests:
+                  format: int64
+                  type: integer
+                maxResponses:
+                  format: int64
+                  type: integer
+              type: object
+          required:
+            - bind
+            - port
+            - protocol
+            - balance
+            - maxConnections
+            - clientIdleTimeout
+            - backendIdleTimeout
+            - backendConnectionTimeout
+            - discovery
+          type: object
+        status:
+          properties:
+            activeConnections:
+              format: int64
+              type: integer
+            rxSecond:
+              format: int64
+              type: integer
+            rxTotal:
+              format: int64
+              type: integer
+            txSecond:
+              format: int64
+              type: integer
+            txTotal:
+              format: int64
+              type: integer
+          type: object
+      required:
+        - spec
+  version: v1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

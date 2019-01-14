@@ -29,18 +29,19 @@ import (
 )
 
 type LoadBalancerInterface interface {
+	GetPid() int32
 	UpdateFarm(*proto.Data) error
 	RemoveFarm(*proto.Data) error
 	LoadInitData(*proto.InitAgentData) error
 	StartEngine() error
 	ReloadEngine() error
 	StopEngine()
-	writeConfig() error
+	WriteConfig() error
 }
 
 type LoadBalancer struct {
 	tmpl    *template.Template
-	handler *handler.Handler
+	handler handler.HandlerInterface
 	pid     string
 	farms   map[string]*proto.Data
 }
@@ -52,17 +53,17 @@ func NewLoadBalancer() (*LoadBalancer, error) {
 		return nil, err
 	}
 
-	return &LoadBalancer{tmpl: tmpl, handler: handlerInstance,farms: map[string]*proto.Data{}}, nil
+	return &LoadBalancer{tmpl: tmpl, handler: handlerInstance, farms: map[string]*proto.Data{}}, nil
 }
 
-func (l *LoadBalancer) GetPid() int32{
+func (l *LoadBalancer) GetPid() int32 {
 	if l.pid == "" {
 		return 0
 	}
 
 	pid, err := strconv.Atoi(l.pid)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to convert pid %s to int",l.pid)
+		log.Log.Reason(err).Errorf("failed to convert pid %s to int", l.pid)
 		return 0
 	}
 
@@ -88,7 +89,9 @@ func (l *LoadBalancer) LoadInitData(data *proto.InitAgentData) error {
 	l.farms = map[string]*proto.Data{}
 
 	for _, farm := range data.Data {
-		l.farms[farm.FarmName] = farm
+		if proto.IsTCPFarm(farm) {
+			l.farms[farm.FarmName] = farm
+		}
 	}
 
 	return nil

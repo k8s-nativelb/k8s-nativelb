@@ -6,8 +6,6 @@ package rename
 
 import (
 	"go/ast"
-	"go/token"
-	"go/types"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,7 +13,7 @@ import (
 	"strings"
 	"unicode"
 
-	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/types"
 )
 
 func objectKind(obj types.Object) string {
@@ -51,7 +49,7 @@ func isValidIdentifier(id string) bool {
 			return false
 		}
 	}
-	return token.Lookup(id) == token.IDENT
+	return true
 }
 
 // isLocal reports whether obj is local to some function.
@@ -79,7 +77,7 @@ func isDigit(ch rune) bool {
 	return '0' <= ch && ch <= '9' || ch >= 0x80 && unicode.IsDigit(ch)
 }
 
-// -- Plundered from golang.org/x/tools/cmd/guru -----------------
+// -- Plundered from golang.org/x/tools/oracle -----------------
 
 // sameFile returns true if x and y have the same basename and denote
 // the same file.
@@ -102,4 +100,14 @@ func sameFile(x, y string) bool {
 	return false
 }
 
-func unparen(e ast.Expr) ast.Expr { return astutil.Unparen(e) }
+// unparen returns e with any enclosing parentheses stripped.
+func unparen(e ast.Expr) ast.Expr {
+	for {
+		p, ok := e.(*ast.ParenExpr)
+		if !ok {
+			break
+		}
+		e = p.X
+	}
+	return e
+}

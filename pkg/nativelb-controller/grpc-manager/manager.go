@@ -16,30 +16,16 @@ limitations under the License.
 package grpc_manager
 
 import (
-	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"sync"
-	"time"
 )
 
 type NativeLBGrpcManager struct {
 	nativelbClient         kubecli.NativelbClient
-	stopChan               <-chan struct{}
+	StopChan               <-chan struct{}
 	updateAgentStatusMutex sync.Mutex
 }
 
 func NewNativeLBGrpcManager(nativelbClient kubecli.NativelbClient, stopChan <-chan struct{}) *NativeLBGrpcManager {
-	return &NativeLBGrpcManager{nativelbClient: nativelbClient, stopChan: stopChan, updateAgentStatusMutex: sync.Mutex{}}
-}
-
-func (n *NativeLBGrpcManager) StartKeepalive() {
-	n.nativelbClient.GetManager().GetCache().WaitForCacheSync(n.stopChan)
-	for {
-		select {
-		case <-n.stopChan:
-			return
-		case <-time.Tick(v1.KeepaliveTime * time.Second):
-			n.keepalive()
-		}
-	}
+	return &NativeLBGrpcManager{nativelbClient: nativelbClient, StopChan: stopChan, updateAgentStatusMutex: sync.Mutex{}}
 }

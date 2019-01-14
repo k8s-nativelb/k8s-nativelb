@@ -15,7 +15,7 @@
 // since it is computing it anyway, and it is robust for ill-typed
 // inputs, which this package is not.
 //
-package satisfy // import "golang.org/x/tools/refactor/satisfy"
+package satisfy
 
 // NOTES:
 //
@@ -48,9 +48,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"go/types"
 
-	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/types"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -72,7 +71,8 @@ type Constraint struct {
 //
 type Finder struct {
 	Result    map[Constraint]bool
-	msetcache typeutil.MethodSetCache
+	msetcache types.MethodSetCache
+	canon     typeutil.Map // maps types to canonical type
 
 	// per-Find state
 	info *types.Info
@@ -81,9 +81,6 @@ type Finder struct {
 
 // Find inspects a single package, populating Result with its pairs of
 // constrained types.
-//
-// The result is non-canonical and thus may contain duplicates (but this
-// tends to preserves names of interface types better).
 //
 // The package must be free of type errors, and
 // info.{Defs,Uses,Selections,Types} must have been populated by the
@@ -284,15 +281,25 @@ func (f *Finder) assign(lhs, rhs types.Type) {
 	if !isInterface(lhs) {
 		return
 	}
-
 	if f.msetcache.MethodSet(lhs).Len() == 0 {
 		return
 	}
 	if f.msetcache.MethodSet(rhs).Len() == 0 {
 		return
 	}
+	// canonicalize types
+	lhsc, ok := f.canon.At(lhs).(types.Type)
+	if !ok {
+		lhsc = lhs
+		f.canon.Set(lhs, lhsc)
+	}
+	rhsc, ok := f.canon.At(rhs).(types.Type)
+	if !ok {
+		rhsc = rhs
+		f.canon.Set(rhs, rhsc)
+	}
 	// record the pair
-	f.Result[Constraint{lhs, rhs}] = true
+	f.Result[Constraint{lhsc, rhsc}] = true
 }
 
 // typeAssert must be called for each type assertion x.(T) where x has
@@ -410,7 +417,7 @@ func (f *Finder) expr(e ast.Expr) types.Type {
 		x := f.expr(e.X)
 		i := f.expr(e.Index)
 		if ux, ok := x.Underlying().(*types.Map); ok {
-			f.assign(ux.Key(), i)
+			f.assign(ux.Elem(), i)
 		}
 
 	case *ast.SliceExpr:
@@ -700,6 +707,19 @@ func deref(typ types.Type) types.Type {
 	return typ
 }
 
-func unparen(e ast.Expr) ast.Expr { return astutil.Unparen(e) }
+// unparen returns e with any enclosing parentheses stripped.
+func unparen(e ast.Expr) ast.Expr {
+	for {
+		p, ok := e.(*ast.ParenExpr)
+		if !ok {
+			break
+		}
+		e = p.X
+	}
+	return e
+}
 
-func isInterface(T types.Type) bool { return types.IsInterface(T) }
+func isInterface(T types.Type) bool {
+	_, ok := T.Underlying().(*types.Interface)
+	return ok
+}

@@ -6,8 +6,10 @@
 
 package main
 
-import "go/importer"
+import (
+	"golang.org/x/tools/go/gcimporter"
+)
 
 func init() {
-	register("gc", importer.For("gc", nil))
+	register("gc", gcimporter.Import)
 }

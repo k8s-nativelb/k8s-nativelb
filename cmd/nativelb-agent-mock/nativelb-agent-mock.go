@@ -205,8 +205,6 @@ func (n *NativelbAgent) GetServerStats(ctx context.Context, cmd *Command) (*Serv
 
 func (n *NativelbAgent) InitAgent(ctx context.Context, data *InitAgentData) (*InitAgentResult, error) {
 	log.Log.Infof("InitAgent grpc call with initData: %v", *data)
-	// TODO: load all the farms and start the keepalived and gobetween processes
-
 	n.agentStatus.SyncVersion = data.SyncVersion
 	n.agentStatus.Status = AgentSyncedStatus
 

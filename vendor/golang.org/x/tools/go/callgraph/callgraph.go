@@ -32,7 +32,7 @@ in the call graph; they are treated like built-in operators of the
 language.
 
 */
-package callgraph // import "golang.org/x/tools/go/callgraph"
+package callgraph
 
 // TODO(adonovan): add a function to eliminate wrappers from the
 // callgraph, preserving topology.
@@ -101,16 +101,10 @@ func (e Edge) String() string {
 }
 
 func (e Edge) Description() string {
-	var prefix string
-	switch e.Site.(type) {
-	case nil:
+	if e.Site == nil {
 		return "synthetic call"
-	case *ssa.Go:
-		prefix = "concurrent "
-	case *ssa.Defer:
-		prefix = "deferred "
 	}
-	return prefix + e.Site.Common().Description()
+	return e.Site.Common().Description()
 }
 
 func (e Edge) Pos() token.Pos {

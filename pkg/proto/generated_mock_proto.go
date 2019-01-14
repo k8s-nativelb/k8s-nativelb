@@ -36,6 +36,7 @@ func (m *MockNativeLoadBalancerAgentClient) EXPECT() *MockNativeLoadBalancerAgen
 
 // CreateServers mocks base method
 func (m *MockNativeLoadBalancerAgentClient) CreateServers(ctx context.Context, in *Data, opts ...grpc.CallOption) (*Result, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -48,12 +49,14 @@ func (m *MockNativeLoadBalancerAgentClient) CreateServers(ctx context.Context, i
 
 // CreateServers indicates an expected call of CreateServers
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) CreateServers(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServers", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).CreateServers), varargs...)
 }
 
 // UpdateServers mocks base method
 func (m *MockNativeLoadBalancerAgentClient) UpdateServers(ctx context.Context, in *Data, opts ...grpc.CallOption) (*Result, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -66,12 +69,14 @@ func (m *MockNativeLoadBalancerAgentClient) UpdateServers(ctx context.Context, i
 
 // UpdateServers indicates an expected call of UpdateServers
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) UpdateServers(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServers", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).UpdateServers), varargs...)
 }
 
 // DeleteServers mocks base method
 func (m *MockNativeLoadBalancerAgentClient) DeleteServers(ctx context.Context, in *Data, opts ...grpc.CallOption) (*Result, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -84,12 +89,14 @@ func (m *MockNativeLoadBalancerAgentClient) DeleteServers(ctx context.Context, i
 
 // DeleteServers indicates an expected call of DeleteServers
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) DeleteServers(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServers", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).DeleteServers), varargs...)
 }
 
 // InitAgent mocks base method
 func (m *MockNativeLoadBalancerAgentClient) InitAgent(ctx context.Context, in *InitAgentData, opts ...grpc.CallOption) (*InitAgentResult, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -102,12 +109,14 @@ func (m *MockNativeLoadBalancerAgentClient) InitAgent(ctx context.Context, in *I
 
 // InitAgent indicates an expected call of InitAgent
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) InitAgent(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitAgent", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).InitAgent), varargs...)
 }
 
 // GetAgentStatus mocks base method
 func (m *MockNativeLoadBalancerAgentClient) GetAgentStatus(ctx context.Context, in *Command, opts ...grpc.CallOption) (*AgentStatus, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -120,12 +129,14 @@ func (m *MockNativeLoadBalancerAgentClient) GetAgentStatus(ctx context.Context, 
 
 // GetAgentStatus indicates an expected call of GetAgentStatus
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) GetAgentStatus(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentStatus", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).GetAgentStatus), varargs...)
 }
 
 // GetServerStats mocks base method
 func (m *MockNativeLoadBalancerAgentClient) GetServerStats(ctx context.Context, in *Command, opts ...grpc.CallOption) (*ServerStats, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -138,12 +149,14 @@ func (m *MockNativeLoadBalancerAgentClient) GetServerStats(ctx context.Context, 
 
 // GetServerStats indicates an expected call of GetServerStats
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) GetServerStats(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerStats", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).GetServerStats), varargs...)
 }
 
 // UpdateAgentSyncVersion mocks base method
 func (m *MockNativeLoadBalancerAgentClient) UpdateAgentSyncVersion(ctx context.Context, in *InitAgentData, opts ...grpc.CallOption) (*Result, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
@@ -156,6 +169,7 @@ func (m *MockNativeLoadBalancerAgentClient) UpdateAgentSyncVersion(ctx context.C
 
 // UpdateAgentSyncVersion indicates an expected call of UpdateAgentSyncVersion
 func (mr *MockNativeLoadBalancerAgentClientMockRecorder) UpdateAgentSyncVersion(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAgentSyncVersion", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).UpdateAgentSyncVersion), varargs...)
 }
@@ -185,6 +199,7 @@ func (m *MockNativeLoadBalancerAgentServer) EXPECT() *MockNativeLoadBalancerAgen
 
 // CreateServers mocks base method
 func (m *MockNativeLoadBalancerAgentServer) CreateServers(arg0 context.Context, arg1 *Data) (*Result, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServers", arg0, arg1)
 	ret0, _ := ret[0].(*Result)
 	ret1, _ := ret[1].(error)
@@ -193,11 +208,13 @@ func (m *MockNativeLoadBalancerAgentServer) CreateServers(arg0 context.Context, 
 
 // CreateServers indicates an expected call of CreateServers
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) CreateServers(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServers", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).CreateServers), arg0, arg1)
 }
 
 // UpdateServers mocks base method
 func (m *MockNativeLoadBalancerAgentServer) UpdateServers(arg0 context.Context, arg1 *Data) (*Result, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServers", arg0, arg1)
 	ret0, _ := ret[0].(*Result)
 	ret1, _ := ret[1].(error)
@@ -206,11 +223,13 @@ func (m *MockNativeLoadBalancerAgentServer) UpdateServers(arg0 context.Context, 
 
 // UpdateServers indicates an expected call of UpdateServers
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) UpdateServers(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServers", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).UpdateServers), arg0, arg1)
 }
 
 // DeleteServers mocks base method
 func (m *MockNativeLoadBalancerAgentServer) DeleteServers(arg0 context.Context, arg1 *Data) (*Result, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServers", arg0, arg1)
 	ret0, _ := ret[0].(*Result)
 	ret1, _ := ret[1].(error)
@@ -219,11 +238,13 @@ func (m *MockNativeLoadBalancerAgentServer) DeleteServers(arg0 context.Context, 
 
 // DeleteServers indicates an expected call of DeleteServers
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) DeleteServers(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServers", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).DeleteServers), arg0, arg1)
 }
 
 // InitAgent mocks base method
 func (m *MockNativeLoadBalancerAgentServer) InitAgent(arg0 context.Context, arg1 *InitAgentData) (*InitAgentResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitAgent", arg0, arg1)
 	ret0, _ := ret[0].(*InitAgentResult)
 	ret1, _ := ret[1].(error)
@@ -232,11 +253,13 @@ func (m *MockNativeLoadBalancerAgentServer) InitAgent(arg0 context.Context, arg1
 
 // InitAgent indicates an expected call of InitAgent
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) InitAgent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitAgent", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).InitAgent), arg0, arg1)
 }
 
 // GetAgentStatus mocks base method
 func (m *MockNativeLoadBalancerAgentServer) GetAgentStatus(arg0 context.Context, arg1 *Command) (*AgentStatus, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAgentStatus", arg0, arg1)
 	ret0, _ := ret[0].(*AgentStatus)
 	ret1, _ := ret[1].(error)
@@ -245,11 +268,13 @@ func (m *MockNativeLoadBalancerAgentServer) GetAgentStatus(arg0 context.Context,
 
 // GetAgentStatus indicates an expected call of GetAgentStatus
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) GetAgentStatus(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentStatus", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).GetAgentStatus), arg0, arg1)
 }
 
 // GetServerStats mocks base method
 func (m *MockNativeLoadBalancerAgentServer) GetServerStats(arg0 context.Context, arg1 *Command) (*ServerStats, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServerStats", arg0, arg1)
 	ret0, _ := ret[0].(*ServerStats)
 	ret1, _ := ret[1].(error)
@@ -258,11 +283,13 @@ func (m *MockNativeLoadBalancerAgentServer) GetServerStats(arg0 context.Context,
 
 // GetServerStats indicates an expected call of GetServerStats
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) GetServerStats(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerStats", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).GetServerStats), arg0, arg1)
 }
 
 // UpdateAgentSyncVersion mocks base method
 func (m *MockNativeLoadBalancerAgentServer) UpdateAgentSyncVersion(arg0 context.Context, arg1 *InitAgentData) (*Result, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateAgentSyncVersion", arg0, arg1)
 	ret0, _ := ret[0].(*Result)
 	ret1, _ := ret[1].(error)
@@ -271,5 +298,6 @@ func (m *MockNativeLoadBalancerAgentServer) UpdateAgentSyncVersion(arg0 context.
 
 // UpdateAgentSyncVersion indicates an expected call of UpdateAgentSyncVersion
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) UpdateAgentSyncVersion(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAgentSyncVersion", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).UpdateAgentSyncVersion), arg0, arg1)
 }

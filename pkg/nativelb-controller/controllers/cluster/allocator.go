@@ -2,6 +2,7 @@ package cluster_controller
 
 import (
 	"fmt"
+	"math/big"
 	"net"
 	"sync"
 
@@ -44,15 +45,14 @@ type Allocator struct {
 }
 
 func NewAllocator(clusterObject *v1.Cluster) (*Allocator, error) {
-	ips, err := getsHosts(clusterObject.Spec.IpRange)
+	ips, err := getsHosts(&clusterObject.Spec)
 	if err != nil {
 		return nil, err
 	}
-	log.Log.Infof("number of ip addresses to allocate from cird %d", len(ips))
 
-	log.Log.Infof("number of allocated ip addresses %d", len(clusterObject.Status.AllocatedIps))
-
-	log.Log.Infof("number of free ip addresses %d", len(ips)-len(clusterObject.Status.AllocatedIps))
+	log.Log.Infof("cluster %s number of ip addresses to allocate from cird %d", clusterObject.Name, len(ips))
+	log.Log.Infof("cluster %s number of allocated ip addresses %d", clusterObject.Name, len(clusterObject.Status.AllocatedIps))
+	log.Log.Infof("cluster %s number of free ip addresses %d", clusterObject.Name, len(ips)-len(clusterObject.Status.AllocatedIps))
 
 	return &Allocator{ips: ips, mutex: sync.Mutex{}}, nil
 }
@@ -79,7 +79,6 @@ func (a *Allocator) Allocate(farm *v1.Farm, clusterObject *v1.Cluster) error {
 	// Add to allocatedIps
 	clusterObject.Status.AllocatedIps[ipAddr] = farm.Name
 
-
 	if clusterObject.Status.AllocatedNamespaces == nil {
 		clusterObject.Status.AllocatedNamespaces = make(map[string]*v1.AllocatedNamespace)
 	}
@@ -87,7 +86,7 @@ func (a *Allocator) Allocate(farm *v1.Farm, clusterObject *v1.Cluster) error {
 	// add to allocatedNamespaces
 	if _, ok := clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace]; !ok {
 		clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace] = &v1.AllocatedNamespace{RouterID: routerID, Farms: []string{farm.Name}}
-	} else {
+	} else if !isFarmInList(clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].Farms, farm.Name) {
 		clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].Farms = append(clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].Farms, farm.Name)
 	}
 
@@ -193,18 +192,76 @@ func (a *Allocator) removeFarmFromAllocatedRouterID(clusterObject *v1.Cluster, f
 	}
 }
 
-func getsHosts(cidr string) ([]string, error) {
-	ip, ipnet, err := net.ParseCIDR(cidr)
+func getsHosts(clusterSpec *v1.ClusterSpec) ([]string, error) {
+	var ips []string
+	ipAddr, ipnet, err := net.ParseCIDR(clusterSpec.Subnet)
 	if err != nil {
 		return nil, err
 	}
 
-	var ips []string
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		ips = append(ips, ip.String())
+	// Can't create an allocator for a network with no addresses, eg
+	// a /32 or /31
+	ones, masklen := ipnet.Mask.Size()
+	if ones > masklen-2 {
+		return ips, fmt.Errorf("Network %s too small to allocate from", (*ipnet).String())
 	}
+
+	if err := canonicalizeIP(&ipAddr); err != nil {
+		return ips, err
+	}
+
+	if len(ipAddr) != len(ipnet.Mask) {
+		return ips, fmt.Errorf("IPNet IP and Mask version mismatch")
+	}
+
+	// Ensure Subnet IP is the network address, not some other address
+	networkIP := ipAddr.Mask(ipnet.Mask)
+	if !ipAddr.Equal(networkIP) {
+		return ips, fmt.Errorf("Network has host bits set. For a subnet mask of length %d the network address is %s", ones, networkIP.String())
+	}
+
+	// RangeStart: If specified, make sure it's sane (inside the subnet),
+	// otherwise use the first free IP (i.e. .1) - this will conflict with the
+	// gateway but we skip it in the iterator
+	var rangeStartIP net.IP
+	if clusterSpec.RangeStart != "" {
+		rangeStartIP = net.ParseIP(clusterSpec.RangeStart)
+		if err := canonicalizeIP(&rangeStartIP); err != nil {
+			return ips, err
+		}
+
+		if !ipnet.Contains(rangeStartIP) {
+			return ips, fmt.Errorf("RangeStart %s not in network %s", clusterSpec.RangeStart, (*ipnet).String())
+		}
+	} else {
+		rangeStartIP = nextIP(ipAddr)
+		clusterSpec.RangeStart = rangeStartIP.String()
+	}
+
+	// RangeEnd: If specified, verify sanity. Otherwise, add a sensible default
+	// (e.g. for a /24: .254 if IPv4, ::255 if IPv6)
+	var rangeEndIP net.IP
+	if clusterSpec.RangeEnd != "" {
+		rangeEndIP = net.ParseIP(clusterSpec.RangeEnd)
+		if err := canonicalizeIP(&rangeEndIP); err != nil {
+			return ips, err
+		}
+
+		if !ipnet.Contains(rangeEndIP) {
+			return ips, fmt.Errorf("RangeEnd %s not in network %s", clusterSpec.RangeEnd, (*ipnet).String())
+		}
+	} else {
+		rangeEndIP = lastIP(ipnet)
+		clusterSpec.RangeEnd = rangeEndIP.String()
+	}
+
+	for ipIdx := rangeStartIP; ipIdx.String() != rangeEndIP.String(); inc(ipIdx) {
+		ips = append(ips, ipIdx.String())
+	}
+
+	ips = append(ips, rangeEndIP.String())
 	// remove network address and broadcast address
-	return ips[1 : len(ips)-1], nil
+	return ips, nil
 }
 
 func inc(ip net.IP) {
@@ -214,4 +271,55 @@ func inc(ip net.IP) {
 			break
 		}
 	}
+}
+
+// nextIP returns IP incremented by 1
+func nextIP(ip net.IP) net.IP {
+	i := ipToInt(ip)
+	return intToIP(i.Add(i, big.NewInt(1)))
+}
+
+func lastIP(subnet *net.IPNet) net.IP {
+	var end net.IP
+	for i := 0; i < len(subnet.IP); i++ {
+		end = append(end, subnet.IP[i]|^subnet.Mask[i])
+	}
+	if subnet.IP.To4() != nil {
+		end[3]--
+	}
+
+	return end
+}
+
+func ipToInt(ip net.IP) *big.Int {
+	if v := ip.To4(); v != nil {
+		return big.NewInt(0).SetBytes(v)
+	}
+	return big.NewInt(0).SetBytes(ip.To16())
+}
+
+func intToIP(i *big.Int) net.IP {
+	return net.IP(i.Bytes())
+}
+
+// canonicalizeIP makes sure a provided ip is in standard form
+func canonicalizeIP(ip *net.IP) error {
+	if ip.To4() != nil {
+		*ip = ip.To4()
+		return nil
+	} else if ip.To16() != nil {
+		*ip = ip.To16()
+		return nil
+	}
+	return fmt.Errorf("IP %s not v4 nor v6", *ip)
+}
+
+func isFarmInList(farms []string, farmName string) bool {
+	for _, farm := range farms {
+		if farm == farmName {
+			return true
+		}
+	}
+
+	return false
 }

@@ -1,20 +1,19 @@
 // The eg command performs example-based refactoring.
 // For documentation, run the command, or see Help in
-// golang.org/x/tools/refactor/eg.
-package main // import "golang.org/x/tools/cmd/eg"
+// code.google.com/p/go.tools/refactor/eg.
+package main
 
 import (
 	"flag"
 	"fmt"
-	"go/build"
-	"go/format"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"golang.org/x/tools/go/buildutil"
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/refactor/eg"
 )
@@ -28,26 +27,17 @@ var (
 	verboseFlag    = flag.Bool("v", false, "show verbose matcher diagnostics")
 )
 
-func init() {
-	flag.Var((*buildutil.TagsFlag)(&build.Default.BuildTags), "tags", buildutil.TagsFlagDoc)
-}
-
 const usage = `eg: an example-based refactoring tool.
 
 Usage: eg -t template.go [-w] [-transitive] <args>...
-
--help            show detailed help message
--t template.go	 specifies the template file (use -help to see explanation)
--w          	 causes files to be re-written in place.
--transitive 	 causes all dependencies to be refactored too.
--v               show verbose matcher diagnostics
--beforeedit cmd  a command to exec before each file is modified.
-                 "{}" represents the name of the file.
+-t template.go	specifies the template file (use -help to see explanation)
+-w          	causes files to be re-written in place.
+-transitive 	causes all dependencies to be refactored too.
 ` + loader.FromArgsUsage
 
 func main() {
 	if err := doMain(); err != nil {
-		fmt.Fprintf(os.Stderr, "eg: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s: %s.\n", filepath.Base(os.Args[0]), err)
 		os.Exit(1)
 	}
 }
@@ -61,22 +51,25 @@ func doMain() error {
 		os.Exit(2)
 	}
 
-	if len(args) == 0 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(1)
-	}
-
 	if *templateFlag == "" {
 		return fmt.Errorf("no -t template.go file specified")
 	}
 
 	conf := loader.Config{
-		Fset:       token.NewFileSet(),
-		ParserMode: parser.ParseComments,
+		Fset:          token.NewFileSet(),
+		ParserMode:    parser.ParseComments,
+		SourceImports: true,
 	}
 
 	// The first Created package is the template.
-	conf.CreateFromFilenames("template", *templateFlag)
+	if err := conf.CreateFromFilenames("template", *templateFlag); err != nil {
+		return err //  e.g. "foo.go:1: syntax error"
+	}
+
+	if len(args) == 0 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(1)
+	}
 
 	if _, err := conf.FromArgs(args, true); err != nil {
 		return err
@@ -90,7 +83,7 @@ func doMain() error {
 
 	// Analyze the template.
 	template := iprog.Created[0]
-	xform, err := eg.NewTransformer(iprog.Fset, template.Pkg, template.Files[0], &template.Info, *verboseFlag)
+	xform, err := eg.NewTransformer(iprog.Fset, template, *verboseFlag)
 	if err != nil {
 		return err
 	}
@@ -135,11 +128,11 @@ func doMain() error {
 					}
 				}
 				if err := eg.WriteAST(iprog.Fset, filename, file); err != nil {
-					fmt.Fprintf(os.Stderr, "eg: %s\n", err)
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 					hadErrors = true
 				}
 			} else {
-				format.Node(os.Stdout, iprog.Fset, file)
+				printer.Fprint(os.Stdout, iprog.Fset, file)
 			}
 		}
 	}

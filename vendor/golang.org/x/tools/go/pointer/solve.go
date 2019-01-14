@@ -9,7 +9,8 @@ package pointer
 
 import (
 	"fmt"
-	"go/types"
+
+	"golang.org/x/tools/go/types"
 )
 
 type solverState struct {

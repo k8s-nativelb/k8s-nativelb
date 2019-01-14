@@ -27,17 +27,15 @@ cache:
   - "~/.minishift/cache"
   - "~/.minikube/cache"
 
-before_script:
+script:
 ## FIXME Workaround for https://github.com/kubernetes/kubernetes/issues/61058
 ### And https://github.com/LiliC/travis-minikube/blob/e0f26f7b388057f51a0e2558afd5f990e07b6c49/.travis.yml#L11
 - sudo mount --make-rshared /
 - bash -x ci/prepare-host $CPLATFORM $CVER
 - bash -x ci/start-cluster $CPLATFORM $CVER
 - bash -x ci/deploy-nativelb $CPLATFORM $CVER
-
-script:
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run make. Please run it and commit the changes"; git status --porcelain; false; fi
-- timeout 10m bash -x hack/run.sh test
+- if [[ $TRAVIS_REPO_SLUG == "k8s-nativelb/k8s-nativelb" ]]; then make docker-goveralls; else make docker-test; fi
 - timeout 20m bash -x hack/run.sh functest
 
 deploy:

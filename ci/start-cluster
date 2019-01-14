@@ -20,6 +20,7 @@ _minikube() {
     --kubernetes-version=v$CVER
 
   minikube update-context
+  sudo chmod 777 $HOME/.kube/config
 }
 
 _oc_cluster() {

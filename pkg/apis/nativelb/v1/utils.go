@@ -27,59 +27,21 @@ import (
 )
 
 const (
-	EventRecorderName          = "nativelb"
-	ControllerNamespace        = "nativelb"
-	ClusterLabel               = "nativelb.io/cluster"
-	KeepaliveTime              = 10
-	ResyncServicesInterval     = 10
-	ResyncFailFarms            = 30
-	ResyncCleanRemovedServices = 320
+	EventRecorderName     = "nativelb"
+	ControllerNamespace   = "nativelb"
+	ClusterLabel          = "k8s.nativelb.io/cluster"
+	NativeLBAnnotationKey = "k8s.nativelb.io/cluster"
+	NativeLBDefaultLabel  = "k8s.nativelb.io/default"
+	DaemonsetLabel        = "k8s.nativelb.io/daemonset"
 
-	DaemonsetLabel        = "nativelb.io/daemonset"
 	DaemonsetClusterLabel = "daemonset.nativelb.io/cluster"
 	AgentPodPortLabel     = "daemonset.nativelb.io/port"
 
-	BackendConnectionTimeout = "2s"
-	BackendIdleTimeout       = "10m"
-	ClientIdleTimeout        = "10m"
-	MaxConnections           = 10000
-
-	/*
-		weight
-		Select backend from discovery pool with probability based on backends weights.
-
-		iphash
-		Target backend will be calculated using hash function of client ip address mod backends count. Note if backends pool changes (for example, due discovery), client may be proxied to a different backend.
-
-		iphash1
-		(since 0.6.0) Target backend will be calculated using hash function of client ip address in a way that if some backend goes down, only clients of that backend will be proxied to another backends. If some new backends are added, behavior is tha same as iphash has.
-
-		leastconn
-		gobetween will select backends with least connections to it.
-
-		roundrobin
-		It's most simple balancing strategy, and each new connection will be proxies to next backend in the backends pool successively.
-
-		leastbandwidth
-		(since 0.3.0) Backends with least sum of rx/tx per second traffic will be selected for next request. Note that rx/tx per second values are calculated with 2 seconds interval so changes in bandwidth won't be instantly applied.
-	*/
-	Balance = "roundrobin"
-
-	// UDP default configuration
-	UDPMaxRequests  = 0
-	UDPMaxResponses = 0
-
-	// HealthCheck default configuration
-	HealthCheckFails               = 1
-	HealthCheckPasses              = 1
-	HealthCheckInterval            = "2s"
-	HealthCheckPingTimeoutDuration = "500ms"
-
-	NativeLBAnnotationKey = "k8s.nativelb/cluster"
-	NativeLBDefaultLabel  = "k8s.nativelb.default"
-
 	ClusterConnectionStatusFail    = "Failed"
 	ClusterConnectionStatusSuccess = "Synced"
+	ClusterConnectionStatusPartial = "Partial"
+	ClusterTypeNativeAgent         = "NativeAgent"
+	ClusterTypeCustom              = "Custom"
 
 	// TODO: need this is unused need to add this to farm labels
 	FarmStatusLabel        = "native-lb-farm-status"
@@ -99,6 +61,30 @@ const (
 
 	NativeLBServerRef = "k8s.nativelb.server"
 	NativeLBFarmRef   = "k8s.nativelb.farm"
+
+	// ---------------------------------------------------------------------
+
+	KeepaliveTime              = 10
+	ResyncServicesInterval     = 10
+	ResyncFailFarms            = 30
+	ResyncCleanRemovedServices = 320
+
+	BackendConnectionTimeout = "2s"
+	BackendIdleTimeout       = "10m"
+	ClientIdleTimeout        = "10m"
+	MaxConnections           = 10000
+
+	Balance = "roundrobin"
+
+	// UDP default configuration
+	UDPMaxRequests  = 0
+	UDPMaxResponses = 0
+
+	// HealthCheck default configuration
+	HealthCheckFails               = 1
+	HealthCheckPasses              = 1
+	HealthCheckInterval            = "2s"
+	HealthCheckPingTimeoutDuration = "500ms"
 
 	DefaultPriority = 1
 	DefaultWeight   = 1

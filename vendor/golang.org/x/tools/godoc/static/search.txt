@@ -23,7 +23,7 @@ QUERY
 ---------------------------------------
 
 */}}{{range $key, $val := .Idents}}{{if $val}}{{$key.Name}}
-{{range $val}}    {{.Path}}.{{.Name}}
+{{range $val.Idents}}    {{.Path}}.{{.Name}}
 {{end}}
 {{end}}{{end}}{{/* .Idents */}}{{/*
 

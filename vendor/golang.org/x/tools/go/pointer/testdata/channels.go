@@ -86,7 +86,7 @@ func chan4() {
 		print(k) // @pointsto main.incr
 	}
 	// Exercise constraint generation (regtest for a crash).
-	for range chA {
+	for _ = range chA {
 	}
 }
 

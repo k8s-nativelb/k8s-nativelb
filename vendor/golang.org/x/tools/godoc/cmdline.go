@@ -1,7 +1,6 @@
 // Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
 package godoc
 
 import (
@@ -182,7 +181,7 @@ func filterInfo(args []string, info *PageInfo) {
 
 // Does s look like a regular expression?
 func isRegexp(s string) bool {
-	return strings.ContainsAny(s, ".(|)*+?^$[]")
+	return strings.IndexAny(s, ".(|)*+?^$[]") >= 0
 }
 
 // Make a regular expression of the form

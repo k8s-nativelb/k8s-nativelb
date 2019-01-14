@@ -3,6 +3,9 @@ kind: Service
 apiVersion: v1
 metadata:
   name: nginx-service2
+  namespace: nginx2
+  annotations:
+    k8s.nativelb.io/cluster: "cluster-sample-cluster"
 spec:
   selector:
     app: nginx2

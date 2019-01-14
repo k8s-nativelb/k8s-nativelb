@@ -33,8 +33,23 @@ func (m *MockLoadBalancerInterface) EXPECT() *MockLoadBalancerInterfaceMockRecor
 	return m.recorder
 }
 
+// GetPid mocks base method
+func (m *MockLoadBalancerInterface) GetPid() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPid")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetPid indicates an expected call of GetPid
+func (mr *MockLoadBalancerInterfaceMockRecorder) GetPid() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPid", reflect.TypeOf((*MockLoadBalancerInterface)(nil).GetPid))
+}
+
 // UpdateFarm mocks base method
 func (m *MockLoadBalancerInterface) UpdateFarm(arg0 *proto.Data) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateFarm", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -42,11 +57,13 @@ func (m *MockLoadBalancerInterface) UpdateFarm(arg0 *proto.Data) error {
 
 // UpdateFarm indicates an expected call of UpdateFarm
 func (mr *MockLoadBalancerInterfaceMockRecorder) UpdateFarm(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFarm", reflect.TypeOf((*MockLoadBalancerInterface)(nil).UpdateFarm), arg0)
 }
 
 // RemoveFarm mocks base method
 func (m *MockLoadBalancerInterface) RemoveFarm(arg0 *proto.Data) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveFarm", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -54,11 +71,13 @@ func (m *MockLoadBalancerInterface) RemoveFarm(arg0 *proto.Data) error {
 
 // RemoveFarm indicates an expected call of RemoveFarm
 func (mr *MockLoadBalancerInterfaceMockRecorder) RemoveFarm(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveFarm", reflect.TypeOf((*MockLoadBalancerInterface)(nil).RemoveFarm), arg0)
 }
 
 // LoadInitData mocks base method
 func (m *MockLoadBalancerInterface) LoadInitData(arg0 *proto.InitAgentData) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadInitData", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -66,11 +85,13 @@ func (m *MockLoadBalancerInterface) LoadInitData(arg0 *proto.InitAgentData) erro
 
 // LoadInitData indicates an expected call of LoadInitData
 func (mr *MockLoadBalancerInterfaceMockRecorder) LoadInitData(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadInitData", reflect.TypeOf((*MockLoadBalancerInterface)(nil).LoadInitData), arg0)
 }
 
 // StartEngine mocks base method
 func (m *MockLoadBalancerInterface) StartEngine() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartEngine")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -78,11 +99,13 @@ func (m *MockLoadBalancerInterface) StartEngine() error {
 
 // StartEngine indicates an expected call of StartEngine
 func (mr *MockLoadBalancerInterfaceMockRecorder) StartEngine() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartEngine", reflect.TypeOf((*MockLoadBalancerInterface)(nil).StartEngine))
 }
 
 // ReloadEngine mocks base method
 func (m *MockLoadBalancerInterface) ReloadEngine() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadEngine")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -90,27 +113,32 @@ func (m *MockLoadBalancerInterface) ReloadEngine() error {
 
 // ReloadEngine indicates an expected call of ReloadEngine
 func (mr *MockLoadBalancerInterfaceMockRecorder) ReloadEngine() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadEngine", reflect.TypeOf((*MockLoadBalancerInterface)(nil).ReloadEngine))
 }
 
 // StopEngine mocks base method
 func (m *MockLoadBalancerInterface) StopEngine() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "StopEngine")
 }
 
 // StopEngine indicates an expected call of StopEngine
 func (mr *MockLoadBalancerInterfaceMockRecorder) StopEngine() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopEngine", reflect.TypeOf((*MockLoadBalancerInterface)(nil).StopEngine))
 }
 
-// writeConfig mocks base method
-func (m *MockLoadBalancerInterface) writeConfig() error {
-	ret := m.ctrl.Call(m, "writeConfig")
+// WriteConfig mocks base method
+func (m *MockLoadBalancerInterface) WriteConfig() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteConfig")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// writeConfig indicates an expected call of writeConfig
-func (mr *MockLoadBalancerInterfaceMockRecorder) writeConfig() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "writeConfig", reflect.TypeOf((*MockLoadBalancerInterface)(nil).writeConfig))
+// WriteConfig indicates an expected call of WriteConfig
+func (mr *MockLoadBalancerInterfaceMockRecorder) WriteConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockLoadBalancerInterface)(nil).WriteConfig))
 }

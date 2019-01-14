@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -142,19 +142,19 @@ func (r *ReconcileDaemonset) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	for _, pod := range pods.Items {
-		for i :=1 ;i < 5 && pod.Status.PodIP == "";i++{
-			log.Log.Infof("pod %s doesn't have ip address yet retry",pod.Name)
+		for i := 1; i < 5 && pod.Status.PodIP == ""; i++ {
+			log.Log.Infof("pod %s doesn't have ip address yet retry", pod.Name)
 			time.Sleep(2 * time.Second)
-			podObject, err := r.GetKubeClient().CoreV1().Pods(v1.ControllerNamespace).Get(pod.Name,metav1.GetOptions{})
+			podObject, err := r.GetKubeClient().CoreV1().Pods(v1.ControllerNamespace).Get(pod.Name, metav1.GetOptions{})
 			if err != nil {
-				log.Log.Reason(err).Errorf("failed to get pod %s",pod.Name)
-				return reconcile.Result{}, fmt.Errorf("failed to get pod %s",pod.Name)
+				log.Log.Reason(err).Errorf("failed to get pod %s", pod.Name)
+				return reconcile.Result{}, fmt.Errorf("failed to get pod %s", pod.Name)
 			}
 
 			pod = *podObject
 		}
 		if pod.Status.PodIP == "" {
-			return reconcile.Result{}, fmt.Errorf("failed to get ip address of the pod %s",pod.Name)
+			return reconcile.Result{}, fmt.Errorf("failed to get ip address of the pod %s", pod.Name)
 		}
 		if value, ok := agentMap[pod.Status.PodIP]; !ok {
 			err := r.agentController.CreateOrUpdateAgentFromPod(daemonsetInstance.Labels[v1.ClusterLabel], &pod, nil)

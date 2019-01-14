@@ -53,7 +53,10 @@ import (
 	"golang.org/x/tools/godoc/vfs/zipfs"
 )
 
-const defaultAddr = ":6060" // default webserver address
+const (
+	defaultAddr = ":6060" // default webserver address
+	toolsPath   = "golang.org/x/tools/cmd/"
+)
 
 var (
 	// file system to serve
@@ -86,15 +89,15 @@ var (
 	// layout control
 	tabWidth       = flag.Int("tabwidth", 4, "tab width")
 	showTimestamps = flag.Bool("timestamps", false, "show timestamps with directory listings")
-	templateDir    = flag.String("templates", "", "load templates/JS/CSS from disk in this directory")
+	templateDir    = flag.String("templates", "", "directory containing alternate template files")
 	showPlayground = flag.Bool("play", false, "enable playground in web interface")
 	showExamples   = flag.Bool("ex", false, "show examples in command line mode")
 	declLinks      = flag.Bool("links", true, "link identifiers to their declarations")
 
 	// search index
-	indexEnabled  = flag.Bool("index", false, "enable search index")
-	indexFiles    = flag.String("index_files", "", "glob pattern specifying index files; if not empty, the index is read from these files in sorted order")
-	indexInterval = flag.Duration("index_interval", 0, "interval of indexing; 0 for default (5m), negative to only index once at startup")
+	indexEnabled = flag.Bool("index", false, "enable search index")
+	indexFiles   = flag.String("index_files", "", "glob pattern specifying index files;"+
+		"if not empty, the index is read from these files in sorted order")
 	maxResults    = flag.Int("maxresults", 10000, "maximum number of full text search results shown")
 	indexThrottle = flag.Float64("index_throttle", 0.75, "index throttle value; 0.0 = no time allocated, 1.0 = full throttle")
 
@@ -153,28 +156,14 @@ func handleURLFlag() {
 	log.Fatalf("too many redirects")
 }
 
-func initCorpus(corpus *godoc.Corpus) {
-	err := corpus.Init()
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
 	flag.Usage = usage
 	flag.Parse()
 
 	playEnabled = *showPlayground
 
-	// Check usage: server and no args.
-	if (*httpAddr != "" || *urlFlag != "") && (flag.NArg() > 0) {
-		fmt.Fprintln(os.Stderr, "can't use -http with args.")
-		usage()
-	}
-
-	// Check usage: command line args or index creation mode.
+	// Check usage: either server and no args, command line and args, or index creation mode
 	if (*httpAddr != "" || *urlFlag != "") != (flag.NArg() == 0) && !*writeIndex {
-		fmt.Fprintln(os.Stderr, "missing args.")
 		usage()
 	}
 
@@ -230,18 +219,14 @@ func main() {
 		corpus.IndexFullText = false
 	}
 	corpus.IndexFiles = *indexFiles
-	corpus.IndexDirectory = indexDirectoryDefault
 	corpus.IndexThrottle = *indexThrottle
-	corpus.IndexInterval = *indexInterval
 	if *writeIndex {
 		corpus.IndexThrottle = 1.0
 		corpus.IndexEnabled = true
 	}
 	if *writeIndex || httpMode || *urlFlag != "" {
-		if httpMode {
-			go initCorpus(corpus)
-		} else {
-			initCorpus(corpus)
+		if err := corpus.Init(); err != nil {
+			log.Fatal(err)
 		}
 	}
 
@@ -323,18 +308,7 @@ func main() {
 			go analysis.Run(pointerAnalysis, &corpus.Analysis)
 		}
 
-		if serveAutoCertHook != nil {
-			go func() {
-				if err := serveAutoCertHook(handler); err != nil {
-					log.Fatalf("ListenAndServe TLS: %v", err)
-				}
-			}()
-		}
-
 		// Start http server.
-		if *verbose {
-			log.Println("starting HTTP server")
-		}
 		if err := http.ListenAndServe(*httpAddr, handler); err != nil {
 			log.Fatalf("ListenAndServe %s: %v", *httpAddr, err)
 		}
@@ -351,7 +325,3 @@ func main() {
 		log.Print(err)
 	}
 }
-
-// serveAutoCertHook if non-nil specifies a function to listen on port 443.
-// See autocert.go.
-var serveAutoCertHook func(http.Handler) error

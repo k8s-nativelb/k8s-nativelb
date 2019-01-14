@@ -7,7 +7,7 @@ package godoc
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"expvar"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -35,12 +35,11 @@ import (
 // handlerServer is a migration from an old godoc http Handler type.
 // This should probably merge into something else.
 type handlerServer struct {
-	p           *Presentation
-	c           *Corpus  // copy of p.Corpus
-	pattern     string   // url pattern; e.g. "/pkg/"
-	stripPrefix string   // prefix to strip from import path; e.g. "pkg/"
-	fsRoot      string   // file system root to which the pattern is mapped; e.g. "/src"
-	exclude     []string // file system paths to exclude; e.g. "/src/cmd"
+	p       *Presentation
+	c       *Corpus  // copy of p.Corpus
+	pattern string   // url pattern; e.g. "/pkg/"
+	fsRoot  string   // file system root to which the pattern is mapped; e.g. "/src"
+	exclude []string // file system paths to exclude; e.g. "/src/cmd"
 }
 
 func (s *handlerServer) registerWithMux(mux *http.ServeMux) {
@@ -55,21 +54,18 @@ func (s *handlerServer) registerWithMux(mux *http.ServeMux) {
 // directories, PageInfo.Dirs is nil. If an error occurred, PageInfo.Err is
 // set to the respective error but the error is not logged.
 //
-func (h *handlerServer) GetPageInfo(abspath, relpath string, mode PageInfoMode, goos, goarch string) *PageInfo {
-	info := &PageInfo{Dirname: abspath, Mode: mode}
+func (h *handlerServer) GetPageInfo(abspath, relpath string, mode PageInfoMode) *PageInfo {
+	info := &PageInfo{Dirname: abspath}
 
 	// Restrict to the package files that would be used when building
 	// the package on this system.  This makes sure that if there are
 	// separate implementations for, say, Windows vs Unix, we don't
 	// jumble them all together.
-	// Note: If goos/goarch aren't set, the current binary's GOOS/GOARCH
-	// are used.
+	// Note: Uses current binary's GOOS/GOARCH.
+	// To use different pair, such as if we allowed the user to choose,
+	// set ctxt.GOOS and ctxt.GOARCH before calling ctxt.ImportDir.
 	ctxt := build.Default
 	ctxt.IsAbsPath = pathpkg.IsAbs
-	ctxt.IsDir = func(path string) bool {
-		fi, err := h.c.fs.Stat(filepath.ToSlash(path))
-		return err == nil && fi.IsDir()
-	}
 	ctxt.ReadDir = func(dir string) ([]os.FileInfo, error) {
 		f, err := h.c.fs.ReadDir(filepath.ToSlash(dir))
 		filtered := make([]os.FileInfo, 0, len(f))
@@ -86,13 +82,6 @@ func (h *handlerServer) GetPageInfo(abspath, relpath string, mode PageInfoMode, 
 			return nil, err
 		}
 		return ioutil.NopCloser(bytes.NewReader(data)), nil
-	}
-
-	if goos != "" {
-		ctxt.GOOS = goos
-	}
-	if goarch != "" {
-		ctxt.GOARCH = goarch
 	}
 
 	pkginfo, err := ctxt.ImportDir(abspath, 0)
@@ -208,7 +197,6 @@ func (h *handlerServer) GetPageInfo(abspath, relpath string, mode PageInfoMode, 
 		timestamp = time.Now()
 	}
 	info.Dirs = dir.listing(true, func(path string) bool { return h.includePath(path, mode) })
-
 	info.DirTime = timestamp
 	info.DirFlat = mode&FlatDir != 0
 
@@ -227,9 +215,9 @@ func (h *handlerServer) includePath(path string, mode PageInfoMode) (r bool) {
 	if mode&NoFiltering != 0 {
 		return true
 	}
-	if strings.Contains(path, "internal") || strings.Contains(path, "vendor") {
+	if strings.Contains(path, "internal") {
 		for _, c := range strings.Split(filepath.Clean(path), string(os.PathSeparator)) {
-			if c == "internal" || c == "vendor" {
+			if c == "internal" {
 				return false
 			}
 		}
@@ -248,19 +236,13 @@ func (h *handlerServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	relpath := pathpkg.Clean(r.URL.Path[len(h.stripPrefix)+1:])
-
-	if !h.corpusInitialized() {
-		h.p.ServeError(w, r, relpath, errors.New("Scan is not yet complete. Please retry after a few moments"))
-		return
-	}
-
+	relpath := pathpkg.Clean(r.URL.Path[len(h.pattern):])
 	abspath := pathpkg.Join(h.fsRoot, relpath)
 	mode := h.p.GetPageInfoMode(r)
 	if relpath == builtinPkgPath {
 		mode = NoFiltering | NoTypeAssoc
 	}
-	info := h.GetPageInfo(abspath, relpath, mode, r.FormValue("GOOS"), r.FormValue("GOARCH"))
+	info := h.GetPageInfo(abspath, relpath, mode)
 	if info.Err != nil {
 		log.Print(info.Err)
 		h.p.ServeError(w, r, relpath, info.Err)
@@ -319,27 +301,17 @@ func (h *handlerServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		info.TypeInfoIndex[ti.Name] = i
 	}
 
-	info.GoogleCN = googleCN(r)
 	h.p.ServePage(w, Page{
 		Title:    title,
 		Tabtitle: tabtitle,
 		Subtitle: subtitle,
 		Body:     applyTemplate(h.p.PackageHTML, "packageHTML", info),
-		GoogleCN: info.GoogleCN,
 	})
-}
-
-func (h *handlerServer) corpusInitialized() bool {
-	h.c.initMu.RLock()
-	defer h.c.initMu.RUnlock()
-	return h.c.initDone
 }
 
 type PageInfoMode uint
 
 const (
-	PageInfoModeQueryString = "m" // query string where PageInfoMode is stored
-
 	NoFiltering PageInfoMode = 1 << iota // do not filter exports
 	AllMethods                           // show all embedded methods
 	ShowSource                           // show source code, do not extract documentation
@@ -357,32 +329,12 @@ var modeNames = map[string]PageInfoMode{
 	"flat":    FlatDir,
 }
 
-// generate a query string for persisting PageInfoMode between pages.
-func modeQueryString(mode PageInfoMode) string {
-	if modeNames := mode.names(); len(modeNames) > 0 {
-		return "?m=" + strings.Join(modeNames, ",")
-	}
-	return ""
-}
-
-// alphabetically sorted names of active flags for a PageInfoMode.
-func (m PageInfoMode) names() []string {
-	var names []string
-	for name, mode := range modeNames {
-		if m&mode != 0 {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	return names
-}
-
 // GetPageInfoMode computes the PageInfoMode flags by analyzing the request
 // URL form value "m". It is value is a comma-separated list of mode names
 // as defined by modeNames (e.g.: m=src,text).
 func (p *Presentation) GetPageInfoMode(r *http.Request) PageInfoMode {
 	var mode PageInfoMode
-	for _, k := range strings.Split(r.FormValue(PageInfoModeQueryString), ",") {
+	for _, k := range strings.Split(r.FormValue("m"), ",") {
 		if m, found := modeNames[strings.TrimSpace(k)]; found {
 			mode |= m
 		}
@@ -508,18 +460,27 @@ func (w *writerCapturesErr) Write(p []byte) (int, error) {
 	return n, err
 }
 
+var httpErrors *expvar.Map
+
+func init() {
+	httpErrors = expvar.NewMap("httpWriteErrors").Init()
+}
+
 // applyTemplateToResponseWriter uses an http.ResponseWriter as the io.Writer
 // for the call to template.Execute.  It uses an io.Writer wrapper to capture
-// errors from the underlying http.ResponseWriter.  Errors are logged only when
-// they come from the template processing and not the Writer; this avoid
-// polluting log files with error messages due to networking issues, such as
-// client disconnects and http HEAD protocol violations.
+// errors from the underlying http.ResponseWriter.  If an error is found, an
+// expvar will be incremented.  Other template errors will be logged.  This is
+// done to keep from polluting log files with error messages due to networking
+// issues, such as client disconnects and http HEAD protocol violations.
 func applyTemplateToResponseWriter(rw http.ResponseWriter, t *template.Template, data interface{}) {
 	w := &writerCapturesErr{w: rw}
 	err := t.Execute(w, data)
 	// There are some cases where template.Execute does not return an error when
 	// rw returns an error, and some where it does.  So check w.err first.
-	if w.err == nil && err != nil {
+	if w.err != nil {
+		// For http errors, increment an expvar.
+		httpErrors.Add(w.err.Error(), 1)
+	} else if err != nil {
 		// Log template errors.
 		log.Printf("%s.Execute: %s", t.Name(), err)
 	}
@@ -559,7 +520,7 @@ func (p *Presentation) serveTextFile(w http.ResponseWriter, r *http.Request, abs
 		return
 	}
 
-	if r.FormValue(PageInfoModeQueryString) == "text" {
+	if r.FormValue("m") == "text" {
 		p.ServeText(w, src)
 		return
 	}
@@ -592,11 +553,9 @@ func (p *Presentation) serveTextFile(w http.ResponseWriter, r *http.Request, abs
 	fmt.Fprintf(&buf, `<p><a href="/%s?m=text">View as plain text</a></p>`, htmlpkg.EscapeString(relpath))
 
 	p.ServePage(w, Page{
-		Title:    title,
-		SrcPath:  relpath,
+		Title:    title + " " + relpath,
 		Tabtitle: relpath,
 		Body:     buf.Bytes(),
-		GoogleCN: googleCN(r),
 	})
 }
 
@@ -635,16 +594,7 @@ func formatGoSource(buf *bytes.Buffer, text []byte, links []analysis.Link, patte
 	// linkWriter, so we have to add line spans as another pass.
 	n := 1
 	for _, line := range bytes.Split(buf.Bytes(), []byte("\n")) {
-		// The line numbers are inserted into the document via a CSS ::before
-		// pseudo-element. This prevents them from being copied when users
-		// highlight and copy text.
-		// ::before is supported in 98% of browsers: https://caniuse.com/#feat=css-gencontent
-		// This is also the trick Github uses to hide line numbers.
-		//
-		// The first tab for the code snippet needs to start in column 9, so
-		// it indents a full 8 spaces, hence the two nbsp's. Otherwise the tab
-		// character only indents about two spaces.
-		fmt.Fprintf(saved, `<span id="L%d" class="ln" data-content="%6d">&nbsp;&nbsp;</span>`, n, n)
+		fmt.Fprintf(saved, "<span id=\"L%d\" class=\"ln\">%6d</span>\t", n, n)
 		n++
 		saved.Write(line)
 		saved.WriteByte('\n')
@@ -663,11 +613,9 @@ func (p *Presentation) serveDirectory(w http.ResponseWriter, r *http.Request, ab
 	}
 
 	p.ServePage(w, Page{
-		Title:    "Directory",
-		SrcPath:  relpath,
+		Title:    "Directory " + relpath,
 		Tabtitle: relpath,
 		Body:     applyTemplate(p.DirlistHTML, "dirlistHTML", list),
-		GoogleCN: googleCN(r),
 	})
 }
 
@@ -693,12 +641,6 @@ func (p *Presentation) ServeHTMLDoc(w http.ResponseWriter, r *http.Request, absp
 		log.Printf("decoding metadata %s: %v", relpath, err)
 	}
 
-	page := Page{
-		Title:    meta.Title,
-		Subtitle: meta.Subtitle,
-		GoogleCN: googleCN(r),
-	}
-
 	// evaluate as template if indicated
 	if meta.Template {
 		tmpl, err := template.New("main").Funcs(p.TemplateFuncs()).Parse(string(src))
@@ -708,7 +650,7 @@ func (p *Presentation) ServeHTMLDoc(w http.ResponseWriter, r *http.Request, absp
 			return
 		}
 		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, page); err != nil {
+		if err := tmpl.Execute(&buf, nil); err != nil {
 			log.Printf("executing template %s: %v", relpath, err)
 			p.ServeError(w, r, relpath, err)
 			return
@@ -723,8 +665,11 @@ func (p *Presentation) ServeHTMLDoc(w http.ResponseWriter, r *http.Request, absp
 		src = buf.Bytes()
 	}
 
-	page.Body = src
-	p.ServePage(w, page)
+	p.ServePage(w, Page{
+		Title:    meta.Title,
+		Subtitle: meta.Subtitle,
+		Body:     src,
+	})
 }
 
 func (p *Presentation) ServeFile(w http.ResponseWriter, r *http.Request) {

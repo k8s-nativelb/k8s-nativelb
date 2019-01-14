@@ -19,13 +19,23 @@ import (
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 )
 
-func ConvertFarmsToGrpcDataList(farms []v1.Farm, clusterObject *v1.Cluster, keepaliveState string, priority int32) []*Data {
+func ConvertFarmsToGrpcDataList(farms []v1.Farm, clusterObject *v1.Cluster, agentNumber, numOfAgents int) []*Data {
 	dataList := make([]*Data, 0)
 
 	for _, farm := range farms {
-		data := ConvertFarmToGrpcData(&farm, clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].RouterID)
-		data.KeepalivedState = keepaliveState
-		data.Priority = priority
+		routerID := clusterObject.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].RouterID
+		data := ConvertFarmToGrpcData(&farm, routerID)
+
+		data.KeepalivedState = "MASTER"
+		if agentNumber != 1 {
+			data.KeepalivedState = "BACKUP"
+		}
+
+		data.Priority = int32(agentNumber)
+		if (int(routerID)%numOfAgents)+1 == agentNumber {
+			data.Priority += 100
+		}
+
 		dataList = append(dataList, data)
 	}
 

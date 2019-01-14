@@ -54,11 +54,14 @@ fmt:
 	go fmt ./pkg/... ./cmd/...
 
 # Run tests
-test: generate
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+test:
+	go test -v -race ./pkg/... ./cmd/... -coverprofile cover.out 
 
 functest:
-	go test ./tests/.
+	go test -v -race ./tests/.
+
+goveralls:
+	./hack/goveralls.sh
 
 #### Docker section ###
 docker-make:
@@ -66,6 +69,9 @@ docker-make:
 
 docker-generate:
 	./hack/run.sh generate vet fmt
+
+docker-goveralls: docker-test
+	./hack/run.sh goveralls
 
 # Test Inside a docker
 docker-test:

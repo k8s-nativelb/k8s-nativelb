@@ -12,7 +12,7 @@
 
 package main
 
-import "go/types"
+import "golang.org/x/tools/go/types"
 
 func (p *printer) writeType(this *types.Package, typ types.Type) {
 	p.writeTypeInternal(this, typ, make([]types.Type, 8))

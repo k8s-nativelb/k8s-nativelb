@@ -22,24 +22,6 @@ func testAll() {
 	testTypeSwitch()
 	testSelect1()
 	testSelect2()
-	testPanic()
-	testEmptySwitches()
-}
-
-// The indexes of the counters in testPanic are known to main.go
-const panicIndex = 3
-
-// This test appears first because the index of its counters is known to main.go
-func testPanic() {
-	defer func() {
-		recover()
-	}()
-	check(LINE, 1)
-	panic("should not get next line")
-	check(LINE, 0) // this is GoCover.Count[panicIndex]
-	// The next counter is in testSimple and it will be non-zero.
-	// If the panic above does not trigger a counter, the test will fail
-	// because GoCover.Count[panicIndex] will be the one in testSimple.
 }
 
 func testSimple() {
@@ -86,13 +68,10 @@ func testIf() {
 			check(LINE, 0)
 		}
 	}
-	if func(a, b int) bool { return a < b }(3, 4) {
-		check(LINE, 1)
-	}
 }
 
 func testFor() {
-	for i := 0; i < 10; func() { i++; check(LINE, 10) }() {
+	for i := 0; i < 10; i++ {
 		check(LINE, 10)
 	}
 }
@@ -125,7 +104,7 @@ func testBlockRun() {
 }
 
 func testSwitch() {
-	for i := 0; i < 5; func() { i++; check(LINE, 5) }() {
+	for i := 0; i < 5; i++ {
 		switch i {
 		case 0:
 			check(LINE, 1)
@@ -142,7 +121,7 @@ func testSwitch() {
 func testTypeSwitch() {
 	var x = []interface{}{1, 2.0, "hi"}
 	for _, v := range x {
-		switch func() { check(LINE, 3) }(); v.(type) {
+		switch v.(type) {
 		case int:
 			check(LINE, 1)
 		case float64:
@@ -195,24 +174,4 @@ func testSelect2() {
 			return
 		}
 	}
-}
-
-// Empty control statements created syntax errors. This function
-// is here just to be sure that those are handled correctly now.
-func testEmptySwitches() {
-	check(LINE, 1)
-	switch 3 {
-	}
-	check(LINE, 1)
-	switch i := (interface{})(3).(int); i {
-	}
-	check(LINE, 1)
-	c := make(chan int)
-	go func() {
-		check(LINE, 1)
-		c <- 1
-		select {}
-	}()
-	<-c
-	check(LINE, 1)
 }

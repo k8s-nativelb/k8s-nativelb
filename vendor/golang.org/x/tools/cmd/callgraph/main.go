@@ -4,7 +4,7 @@
 
 // callgraph: a tool for reporting the call graph of a Go program.
 // See Usage for details, or run with -help.
-package main // import "golang.org/x/tools/cmd/callgraph"
+package main
 
 // TODO(adonovan):
 //
@@ -20,77 +20,52 @@ package main // import "golang.org/x/tools/cmd/callgraph"
 //     callee file/line/col
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
 	"go/build"
 	"go/token"
 	"io"
-	"log"
 	"os"
 	"runtime"
 	"text/template"
 
-	"golang.org/x/tools/go/buildutil"
 	"golang.org/x/tools/go/callgraph"
-	"golang.org/x/tools/go/callgraph/cha"
 	"golang.org/x/tools/go/callgraph/rta"
-	"golang.org/x/tools/go/callgraph/static"
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/pointer"
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 )
 
-// flags
-var (
-	algoFlag = flag.String("algo", "rta",
-		`Call graph construction algorithm (static, cha, rta, pta)`)
+var algoFlag = flag.String("algo", "rta",
+	`Call graph construction algorithm, one of "rta" or "pta"`)
 
-	testFlag = flag.Bool("test", false,
-		"Loads test code (*_test.go) for imported packages")
+var testFlag = flag.Bool("test", false,
+	"Loads test code (*_test.go) for imported packages")
 
-	formatFlag = flag.String("format",
-		"{{.Caller}}\t--{{.Dynamic}}-{{.Line}}:{{.Column}}-->\t{{.Callee}}",
-		"A template expression specifying how to format an edge")
-
-	ptalogFlag = flag.String("ptalog", "",
-		"Location of the points-to analysis log file, or empty to disable logging.")
-)
-
-func init() {
-	flag.Var((*buildutil.TagsFlag)(&build.Default.BuildTags), "tags", buildutil.TagsFlagDoc)
-}
+var formatFlag = flag.String("format",
+	"{{.Caller}}\t--{{.Dynamic}}-{{.Line}}:{{.Column}}-->\t{{.Callee}}",
+	"A template expression specifying how to format an edge")
 
 const Usage = `callgraph: display the the call graph of a Go program.
 
 Usage:
 
-  callgraph [-algo=static|cha|rta|pta] [-test] [-format=...] <args>...
+  callgraph [-algo=rta|pta] [-test] [-format=...] <args>...
 
 Flags:
 
--algo      Specifies the call-graph construction algorithm, one of:
-
-            static      static calls only (unsound)
-            cha         Class Hierarchy Analysis
-            rta         Rapid Type Analysis
-            pta         inclusion-based Points-To Analysis
-
-           The algorithms are ordered by increasing precision in their
-           treatment of dynamic calls (and thus also computational cost).
-           RTA and PTA require a whole program (main or test), and
-           include only functions reachable from main.
+-algo      Specifies the call-graph construction algorithm.  One of:
+           "rta": Rapid Type Analysis  (simple and fast)
+           "pta": inclusion-based Points-To Analysis (slower but more precise)
 
 -test      Include the package's tests in the analysis.
 
 -format    Specifies the format in which each call graph edge is displayed.
            One of:
-
-            digraph     output suitable for input to
+           "digraph":   output suitable for input to
                         golang.org/x/tools/cmd/digraph.
-            graphviz    output in AT&T GraphViz (.dot) format.
+           "graphviz":  output in AT&T GraphViz (.dot) format.
 
            All other values are interpreted using text/template syntax.
            The default value is:
@@ -114,7 +89,7 @@ Flags:
 
            Caller and Callee are *ssa.Function values, which print as
            "(*sync/atomic.Mutex).Lock", but other attributes may be
-           derived from them, e.g. Caller.Pkg.Pkg.Path yields the
+           derived from them, e.g. Caller.Pkg.Object.Path yields the
            import path of the enclosing package.  Consult the go/ssa
            API documentation for details.
 
@@ -128,7 +103,7 @@ Examples:
 
   Same, but show only the packages of each function:
 
-    callgraph -format '{{.Caller.Pkg.Pkg.Path}} -> {{.Callee.Pkg.Pkg.Path}}' \
+    callgraph -format '{{.Caller.Pkg.Object.Path}} -> {{.Callee.Pkg.Object.Path}}' \
       $GOROOT/src/net/http/triv.go | sort | uniq
 
   Show functions that make dynamic calls into the 'fmt' test package,
@@ -159,7 +134,7 @@ func init() {
 func main() {
 	flag.Parse()
 	if err := doCallgraph(&build.Default, *algoFlag, *formatFlag, *testFlag, flag.Args()); err != nil {
-		fmt.Fprintf(os.Stderr, "callgraph: %s\n", err)
+		fmt.Fprintf(os.Stderr, "callgraph: %s.\n", err)
 		os.Exit(1)
 	}
 }
@@ -167,7 +142,10 @@ func main() {
 var stdout io.Writer = os.Stdout
 
 func doCallgraph(ctxt *build.Context, algo, format string, tests bool, args []string) error {
-	conf := loader.Config{Build: ctxt}
+	conf := loader.Config{
+		Build:         ctxt,
+		SourceImports: true,
+	}
 
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, Usage)
@@ -175,7 +153,7 @@ func doCallgraph(ctxt *build.Context, algo, format string, tests bool, args []st
 	}
 
 	// Use the initial packages from the command line.
-	_, err := conf.FromArgs(args, tests)
+	args, err := conf.FromArgs(args, tests)
 	if err != nil {
 		return err
 	}
@@ -187,48 +165,50 @@ func doCallgraph(ctxt *build.Context, algo, format string, tests bool, args []st
 	}
 
 	// Create and build SSA-form program representation.
-	prog := ssautil.CreateProgram(iprog, 0)
-	prog.Build()
+	prog := ssa.Create(iprog, 0)
+	prog.BuildAll()
+
+	// Determine the main package.
+	// TODO(adonovan): allow independent control over tests, mains
+	// and libraries.
+	// TODO(adonovan): put this logic in a library; we keep reinventing it.
+	var main *ssa.Package
+	pkgs := prog.AllPackages()
+	if tests {
+		// If -test, use all packages' tests.
+		if len(pkgs) > 0 {
+			main = prog.CreateTestMainPackage(pkgs...)
+		}
+		if main == nil {
+			return fmt.Errorf("no tests")
+		}
+	} else {
+		// Otherwise, use main.main.
+		for _, pkg := range pkgs {
+			if pkg.Object.Name() == "main" {
+				main = pkg
+				if main.Func("main") == nil {
+					return fmt.Errorf("no func main() in main package")
+				}
+				break
+			}
+		}
+		if main == nil {
+			return fmt.Errorf("no main package")
+		}
+	}
+
+	// Invariant: main package has a main() function.
 
 	// -- call graph construction ------------------------------------------
 
 	var cg *callgraph.Graph
 
 	switch algo {
-	case "static":
-		cg = static.CallGraph(prog)
-
-	case "cha":
-		cg = cha.CallGraph(prog)
-
 	case "pta":
-		// Set up points-to analysis log file.
-		var ptalog io.Writer
-		if *ptalogFlag != "" {
-			if f, err := os.Create(*ptalogFlag); err != nil {
-				log.Fatalf("Failed to create PTA log file: %s", err)
-			} else {
-				buf := bufio.NewWriter(f)
-				ptalog = buf
-				defer func() {
-					if err := buf.Flush(); err != nil {
-						log.Printf("flush: %s", err)
-					}
-					if err := f.Close(); err != nil {
-						log.Printf("close: %s", err)
-					}
-				}()
-			}
-		}
-
-		mains, err := mainPackages(prog, tests)
-		if err != nil {
-			return err
-		}
 		config := &pointer.Config{
-			Mains:          mains,
+			Mains:          []*ssa.Package{main},
 			BuildCallGraph: true,
-			Log:            ptalog,
 		}
 		ptares, err := pointer.Analyze(config)
 		if err != nil {
@@ -237,13 +217,9 @@ func doCallgraph(ctxt *build.Context, algo, format string, tests bool, args []st
 		cg = ptares.CallGraph
 
 	case "rta":
-		mains, err := mainPackages(prog, tests)
-		if err != nil {
-			return err
-		}
-		var roots []*ssa.Function
-		for _, main := range mains {
-			roots = append(roots, main.Func("init"), main.Func("main"))
+		roots := []*ssa.Function{
+			main.Func("init"),
+			main.Func("main"),
 		}
 		rtares := rta.Analyze(roots, true)
 		cg = rtares.CallGraph
@@ -268,7 +244,7 @@ func doCallgraph(ctxt *build.Context, algo, format string, tests bool, args []st
 	case "graphviz":
 		before = "digraph callgraph {\n"
 		after = "}\n"
-		format = `  {{printf "%q" .Caller}} -> {{printf "%q" .Callee}}`
+		format = `  {{printf "%q" .Caller}} -> {{printf "%q" .Callee}}"`
 	}
 
 	tmpl, err := template.New("-format").Parse(format)
@@ -301,33 +277,6 @@ func doCallgraph(ctxt *build.Context, algo, format string, tests bool, args []st
 	}
 	fmt.Fprint(stdout, after)
 	return nil
-}
-
-// mainPackages returns the main packages to analyze.
-// Each resulting package is named "main" and has a main function.
-func mainPackages(prog *ssa.Program, tests bool) ([]*ssa.Package, error) {
-	pkgs := prog.AllPackages() // TODO(adonovan): use only initial packages
-
-	// If tests, create a "testmain" package for each test.
-	var mains []*ssa.Package
-	if tests {
-		for _, pkg := range pkgs {
-			if main := prog.CreateTestMainPackage(pkg); main != nil {
-				mains = append(mains, main)
-			}
-		}
-		if mains == nil {
-			return nil, fmt.Errorf("no tests")
-		}
-		return mains, nil
-	}
-
-	// Otherwise, use the main packages.
-	mains = append(mains, ssautil.MainPackages(pkgs)...)
-	if len(mains) == 0 {
-		return nil, fmt.Errorf("no main packages")
-	}
-	return mains, nil
 }
 
 type Edge struct {

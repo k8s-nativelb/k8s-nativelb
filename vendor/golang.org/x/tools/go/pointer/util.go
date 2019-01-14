@@ -7,7 +7,6 @@ package pointer
 import (
 	"bytes"
 	"fmt"
-	"go/types"
 	"log"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"golang.org/x/tools/container/intsets"
+	"golang.org/x/tools/go/types"
 )
 
 // CanPoint reports whether the type T is pointerlike,
@@ -26,6 +26,7 @@ func CanPoint(T types.Type) bool {
 			return true // treat reflect.Value like interface{}
 		}
 		return CanPoint(T.Underlying())
+
 	case *types.Pointer, *types.Interface, *types.Map, *types.Chan, *types.Signature, *types.Slice:
 		return true
 	}
@@ -49,7 +50,11 @@ func CanHaveDynamicTypes(T types.Type) bool {
 	return false
 }
 
-func isInterface(T types.Type) bool { return types.IsInterface(T) }
+// isInterface reports whether T is an interface type.
+func isInterface(T types.Type) bool {
+	_, ok := T.Underlying().(*types.Interface)
+	return ok
+}
 
 // mustDeref returns the element type of its argument, which must be a
 // pointer; panic ensues otherwise.
@@ -170,7 +175,7 @@ func (a *analysis) flatten(t types.Type) []*fieldInfo {
 			}
 
 		default:
-			panic(fmt.Sprintf("cannot flatten unsupported type %T", t))
+			panic(t)
 		}
 
 		a.flattenMemo[t] = fl

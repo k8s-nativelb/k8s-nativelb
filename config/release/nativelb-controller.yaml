@@ -15,25 +15,18 @@ spec:
     metadata:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
-        scheduler.alpha.kubernetes.io/tolerations: |
-          [
-            {
-              "key": "CriticalAddonsOnly",
-              "operator": "Exists"
-            }
-          ]
       labels:
         control-plane: nativelb-controller
     spec:
       containers:
-      - image: quay.io/k8s-nativelb/nativelb-controller:latest
-        imagePullPolicy: IfNotPresent
-        name: controller
-        resources:
-          limits:
-            cpu: 1000m
-            memory: 500Mi
-          requests:
-            cpu: 500m
-            memory: 200Mi
+        - image: registry:5000/k8s-nativelb/nativelb-controller:latest
+          imagePullPolicy: Always
+          name: controller
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+            requests:
+              cpu: 500m
+              memory: 200Mi
       terminationGracePeriodSeconds: 10

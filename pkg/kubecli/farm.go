@@ -53,7 +53,7 @@ func (c *farm) Get(name string) (*v1.Farm, error) {
 	var err error
 
 	for i := 0; i < getRetry; i++ {
-		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: v1.ControllerNamespace}, farm)
+		err = c.Client.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: v1.ControllerNamespace}, farm)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil {

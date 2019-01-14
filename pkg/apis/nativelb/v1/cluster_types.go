@@ -20,15 +20,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ClusterSpec defines the desired state of Cluster
 // +k8s:openapi-gen=true
 type ClusterSpec struct {
-	IpRange  string `json:"ipRange"`
-	Default  bool   `json:"default,omitempty"`
-	Internal bool   `json:"internal,omitempty"`
+	// subnet to allocate from.
+	Subnet     string `json:"subnet"`
+	RangeStart string `json:"rangeStart,omitempty"`
+	RangeEnd   string `json:"rangeEnd,omitempty"`
+	// Only one can exist
+	// true: any service of type loadbalancer will be created on the cluster
+	// false: only services with the cluster annotation name will be created on the cluster
+	Default bool `json:"default,omitempty"`
+	// true: Point pods as backends
+	// false: Point nodes as service backends
+	Internal bool `json:"internal,omitempty"`
+	// Cluster Type (NativeAgent,Custom)
+	// default NativeAgent
+	Type string `json:"type,omitempty"`
 }
 
 // ClusterStatus defines the observed state of Cluster

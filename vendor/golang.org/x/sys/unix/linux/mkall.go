@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // linux/mkall.go - Generates all Linux zsysnum, zsyscall, zerror, and ztype
-// files for all Linux architectures supported by the go compiler. See
+// files for all 11 linux architectures supported by the go compiler. See
 // README.md for more information about the build system.
 
 // To run it you must have a git checkout of the Linux kernel and glibc. Once
@@ -52,7 +52,7 @@ type target struct {
 	Bits       int
 }
 
-// List of all Linux targets supported by the go compiler. sparc64 is not
+// List of the 11 Linux targets supported by the go compiler. sparc64 is not
 // currently supported, though a port is in progress.
 var targets = []target{
 	{
@@ -117,12 +117,6 @@ var targets = []target{
 		GoArch:    "ppc64le",
 		LinuxArch: "powerpc",
 		GNUArch:   "powerpc64le-linux-gnu",
-		Bits:      64,
-	},
-	{
-		GoArch:    "riscv64",
-		LinuxArch: "riscv",
-		GNUArch:   "riscv64-linux-gnu",
 		Bits:      64,
 	},
 	{
@@ -202,32 +196,22 @@ func makeCommand(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// Set GOARCH for target and build environments.
-func (t *target) setTargetBuildArch(cmd *exec.Cmd) {
-	// Set GOARCH_TARGET so command knows what GOARCH is..
-	cmd.Env = append(os.Environ(), "GOARCH_TARGET="+t.GoArch)
-	// Set GOARCH to host arch for command, so it can run natively.
-	for i, s := range cmd.Env {
-		if strings.HasPrefix(s, "GOARCH=") {
-			cmd.Env[i] = "GOARCH=" + BuildArch
-		}
-	}
-}
-
 // Runs the command, pipes output to a formatter, pipes that to an output file.
 func (t *target) commandFormatOutput(formatter string, outputFile string,
 	name string, args ...string) (err error) {
 	mainCmd := makeCommand(name, args...)
-	if name == "mksyscall" {
-		args = append([]string{"run", "mksyscall.go"}, args...)
-		mainCmd = makeCommand("go", args...)
-		t.setTargetBuildArch(mainCmd)
-	}
 
 	fmtCmd := makeCommand(formatter)
 	if formatter == "mkpost" {
 		fmtCmd = makeCommand("go", "run", "mkpost.go")
-		t.setTargetBuildArch(fmtCmd)
+		// Set GOARCH_TARGET so mkpost knows what GOARCH is..
+		fmtCmd.Env = append(os.Environ(), "GOARCH_TARGET="+t.GoArch)
+		// Set GOARCH to host arch for mkpost, so it can run natively.
+		for i, s := range fmtCmd.Env {
+			if strings.HasPrefix(s, "GOARCH=") {
+				fmtCmd.Env[i] = "GOARCH=" + BuildArch
+			}
+		}
 	}
 
 	// mainCmd | fmtCmd > outputFile
@@ -271,10 +255,6 @@ func (t *target) generateFiles() error {
 		qemuArchName := t.GNUArch[:strings.Index(t.GNUArch, "-")]
 		if t.LinuxArch == "powerpc" {
 			qemuArchName = t.GoArch
-		}
-		// Fake uname for QEMU to allow running on Host kernel version < 4.15
-		if t.LinuxArch == "riscv" {
-			os.Setenv("QEMU_UNAME", "4.15")
 		}
 		os.Setenv("GORUN", "qemu-"+qemuArchName)
 	} else {
@@ -482,7 +462,7 @@ func (t *target) makeZSyscallFile() error {
 
 	args := append(t.mksyscallFlags(), "-tags", "linux,"+t.GoArch,
 		"syscall_linux.go", archSyscallFile)
-	return t.commandFormatOutput("gofmt", zsyscallFile, "mksyscall", args...)
+	return t.commandFormatOutput("gofmt", zsyscallFile, "./mksyscall.pl", args...)
 }
 
 // makes the zerrors_linux_$GOARCH.go file

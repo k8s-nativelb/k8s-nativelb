@@ -7,14 +7,14 @@ package interp
 import (
 	"bytes"
 	"fmt"
-	exact "go/constant"
 	"go/token"
-	"go/types"
 	"strings"
 	"sync"
 	"unsafe"
 
+	"golang.org/x/tools/go/exact"
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/types"
 )
 
 // If the target program panics, the interpreter panics with this type.
@@ -286,7 +286,9 @@ func lookup(instr *ssa.Lookup, x, idx value) value {
 			v = x.lookup(idx.(hashable))
 			ok = v != nil
 		}
-		if !ok {
+		if ok {
+			v = copyVal(v)
+		} else {
 			v = zero(instr.X.Type().Underlying().(*types.Map).Elem())
 		}
 		if instr.CommaOk {
@@ -842,7 +844,7 @@ func unop(instr *ssa.UnOp, x value) value {
 			return -x
 		}
 	case token.MUL:
-		return load(deref(instr.X.Type()), x.(*value))
+		return copyVal(*x.(*value)) // load
 	case token.NOT:
 		return !x.(bool)
 	case token.XOR:
@@ -889,7 +891,7 @@ func typeAssert(i *interpreter, instr *ssa.TypeAssert, itf iface) value {
 		err = checkInterface(i, idst, itf)
 
 	} else if types.Identical(itf.t, instr.AssertedType) {
-		v = itf.v // extract value
+		v = copyVal(itf.v) // extract value
 
 	} else {
 		err = fmt.Sprintf("interface conversion: interface is %s, not %s", itf.t, instr.AssertedType)
@@ -930,8 +932,6 @@ func write(fd int, b []byte) (int, error) {
 	}
 	return syswrite(fd, b)
 }
-
-var syswrite func(int, []byte) (int, error) // set on darwin/linux only
 
 // callBuiltin interprets a call to builtin fn with arguments args,
 // returning its result.
@@ -1098,7 +1098,7 @@ func rangeIter(x value, t types.Type) iter {
 		// reflect.(Value).MapKeys machinery.
 		it := make(mapIter)
 		go func() {
-			for _, e := range x.entries() {
+			for _, e := range x.table {
 				for e != nil {
 					it <- [2]value{e.key, e.value}
 					e = e.next

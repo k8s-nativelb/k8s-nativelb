@@ -10,16 +10,29 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"go/types"
 	"io"
 	"os"
 
-	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/types"
 )
+
+func unreachable() {
+	panic("unreachable")
+}
 
 //// AST utilities
 
-func unparen(e ast.Expr) ast.Expr { return astutil.Unparen(e) }
+// unparen returns e with any enclosing parentheses stripped.
+func unparen(e ast.Expr) ast.Expr {
+	for {
+		p, ok := e.(*ast.ParenExpr)
+		if !ok {
+			break
+		}
+		e = p.X
+	}
+	return e
+}
 
 // isBlankIdent returns true iff e is an Ident with name "_".
 // They have no associated types.Object, and thus no type.
@@ -37,7 +50,11 @@ func isPointer(typ types.Type) bool {
 	return ok
 }
 
-func isInterface(T types.Type) bool { return types.IsInterface(T) }
+// isInterface reports whether T's underlying type is an interface.
+func isInterface(T types.Type) bool {
+	_, ok := T.Underlying().(*types.Interface)
+	return ok
+}
 
 // deref returns a pointer's element type; otherwise it returns typ.
 func deref(typ types.Type) types.Type {
@@ -58,7 +75,7 @@ func recvType(obj *types.Func) types.Type {
 //
 // Exported to ssa/interp.
 //
-// TODO(adonovan): use go/types.DefaultType after 1.8.
+// TODO(gri): this is a copy of go/types.defaultType; export that function.
 //
 func DefaultType(typ types.Type) types.Type {
 	if t, ok := typ.(*types.Basic); ok {
@@ -114,6 +131,6 @@ func makeLen(T types.Type) *Builtin {
 	lenParams := types.NewTuple(anonVar(T))
 	return &Builtin{
 		name: "len",
-		sig:  types.NewSignature(nil, lenParams, lenResults, false),
+		sig:  types.NewSignature(nil, nil, lenParams, lenResults, false),
 	}
 }

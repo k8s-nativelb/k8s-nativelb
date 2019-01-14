@@ -18,4 +18,4 @@ spec:
   # Add fields here
   default: false
   internal: false
-  ipRange: "11.0.0.0/24"
+  subnet: "11.0.0.0/24"

@@ -19,16 +19,12 @@ import (
 	"github.com/k8s-nativelb/pkg/apis"
 	"github.com/k8s-nativelb/pkg/log"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-func GetNativelbClient() (NativelbClient, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
+func GetNativelbClient(cfg *rest.Config, clientConfigure client.Client) (NativelbClient, error) {
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{})
 	if err != nil {
@@ -48,5 +44,10 @@ func GetNativelbClient() (NativelbClient, error) {
 		panic(err)
 	}
 
-	return &nativeLB{Manager: mgr, Client: mgr.GetClient(), KubeConfig: kubeClient}, nil
+	clientObject := mgr.GetClient()
+	if clientConfigure != nil {
+		clientObject = clientConfigure
+	}
+
+	return &nativeLB{Manager: mgr, Client: clientObject, KubeConfig: kubeClient}, nil
 }

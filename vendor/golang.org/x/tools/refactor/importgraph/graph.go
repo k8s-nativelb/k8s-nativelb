@@ -4,7 +4,7 @@
 
 // Package importgraph computes the forward and reverse import
 // dependency graphs for all packages in a Go workspace.
-package importgraph // import "golang.org/x/tools/refactor/importgraph"
+package importgraph
 
 import (
 	"go/build"
@@ -20,8 +20,6 @@ import (
 // imported packages (prerequisites); for a reverse graph, it is the set
 // of importing packages (clients).
 //
-// Graph construction inspects all imports in each package's directory,
-// including those in _test.go files, so the resulting graph may be cyclic.
 type Graph map[string]map[string]bool
 
 func (g Graph) addEdge(from, to string) {
@@ -53,115 +51,75 @@ func (g Graph) Search(roots ...string) map[string]bool {
 	return seen
 }
 
-// Build scans the specified Go workspace and builds the forward and
+// Builds scans the specified Go workspace and builds the forward and
 // reverse import dependency graphs for all its packages.
-// It also returns a mapping from canonical import paths to errors for packages
-// whose loading was not entirely successful.
-// A package may appear in the graph and in the errors mapping.
-// All package paths are canonical and may contain "/vendor/".
+// It also returns a mapping from import paths to errors for packages
+// that could not be loaded.
 func Build(ctxt *build.Context) (forward, reverse Graph, errors map[string]error) {
-	type importEdge struct {
-		from, to string
-	}
+	// The (sole) graph builder goroutine receives a stream of import
+	// edges from the package loading goroutine.
+	forward = make(Graph)
+	reverse = make(Graph)
+	edgec := make(chan [2]string)
+	go func() {
+		for edge := range edgec {
+			if edge[1] == "C" {
+				continue // "C" is fake
+			}
+			forward.addEdge(edge[0], edge[1])
+			reverse.addEdge(edge[1], edge[0])
+		}
+	}()
+
+	// The (sole) error goroutine receives a stream of ReadDir and
+	// Import errors.
 	type pathError struct {
 		path string
 		err  error
 	}
-
-	ch := make(chan interface{})
-
+	errorc := make(chan pathError)
 	go func() {
-		sema := make(chan int, 20) // I/O concurrency limiting semaphore
-		var wg sync.WaitGroup
-		buildutil.ForEachPackage(ctxt, func(path string, err error) {
-			if err != nil {
-				ch <- pathError{path, err}
-				return
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				sema <- 1
-				bp, err := ctxt.Import(path, "", 0)
-				<-sema
-
-				if err != nil {
-					if _, ok := err.(*build.NoGoError); ok {
-						// empty directory is not an error
-					} else {
-						ch <- pathError{path, err}
-					}
-					// Even in error cases, Import usually returns a package.
-				}
-
-				// absolutize resolves an import path relative
-				// to the current package bp.
-				// The absolute form may contain "vendor".
-				//
-				// The vendoring feature slows down Build by 3×.
-				// Here are timings from a 1400 package workspace:
-				//    1100ms: current code (with vendor check)
-				//     880ms: with a nonblocking cache around ctxt.IsDir
-				//     840ms: nonblocking cache with duplicate suppression
-				//     340ms: original code (no vendor check)
-				// TODO(adonovan): optimize, somehow.
-				memo := make(map[string]string)
-				absolutize := func(path string) string {
-					canon, ok := memo[path]
-					if !ok {
-						sema <- 1
-						bp2, _ := ctxt.Import(path, bp.Dir, build.FindOnly)
-						<-sema
-
-						if bp2 != nil {
-							canon = bp2.ImportPath
-						} else {
-							canon = path
-						}
-						memo[path] = canon
-					}
-					return canon
-				}
-
-				if bp != nil {
-					for _, imp := range bp.Imports {
-						ch <- importEdge{path, absolutize(imp)}
-					}
-					for _, imp := range bp.TestImports {
-						ch <- importEdge{path, absolutize(imp)}
-					}
-					for _, imp := range bp.XTestImports {
-						ch <- importEdge{path, absolutize(imp)}
-					}
-				}
-
-			}()
-		})
-		wg.Wait()
-		close(ch)
-	}()
-
-	forward = make(Graph)
-	reverse = make(Graph)
-
-	for e := range ch {
-		switch e := e.(type) {
-		case pathError:
+		for e := range errorc {
 			if errors == nil {
 				errors = make(map[string]error)
 			}
 			errors[e.path] = e.err
-
-		case importEdge:
-			if e.to == "C" {
-				continue // "C" is fake
-			}
-			forward.addEdge(e.from, e.to)
-			reverse.addEdge(e.to, e.from)
 		}
-	}
+	}()
+
+	var wg sync.WaitGroup
+	buildutil.ForEachPackage(ctxt, func(path string, err error) {
+		if err != nil {
+			errorc <- pathError{path, err}
+			return
+		}
+		wg.Add(1)
+		// The import goroutines load the metadata for each package.
+		go func(path string) {
+			defer wg.Done()
+			bp, err := ctxt.Import(path, "", 0)
+			if _, ok := err.(*build.NoGoError); ok {
+				return // empty directory is not an error
+			}
+			if err != nil {
+				errorc <- pathError{path, err}
+				return
+			}
+			for _, imp := range bp.Imports {
+				edgec <- [2]string{path, imp}
+			}
+			for _, imp := range bp.TestImports {
+				edgec <- [2]string{path, imp}
+			}
+			for _, imp := range bp.XTestImports {
+				edgec <- [2]string{path, imp}
+			}
+		}(path)
+	})
+	wg.Wait()
+
+	close(edgec)
+	close(errorc)
 
 	return forward, reverse, errors
 }
