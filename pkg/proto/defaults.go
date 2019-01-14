@@ -15,7 +15,19 @@ limitations under the License.
 */
 package proto
 
+import (
+	"strings"
+)
+
 const (
 	AgentNewStatus    = "new"
 	AgentSyncedStatus = "synced"
 )
+
+func IsTCPFarm(data *Data) bool {
+	if strings.ToLower(data.Servers[0].Protocol) == "tcp" {
+		return true
+	}
+
+	return false
+}

@@ -40,7 +40,7 @@
 // cmd/callgraph tool on its own source takes ~2.1s for RTA and ~5.4s
 // for points-to analysis.
 //
-package rta // import "golang.org/x/tools/go/callgraph/rta"
+package rta
 
 // TODO(adonovan): test it by connecting it to the interpreter and
 // replacing all "unreachable" functions by a special intrinsic, and
@@ -48,10 +48,10 @@ package rta // import "golang.org/x/tools/go/callgraph/rta"
 
 import (
 	"fmt"
-	"go/types"
 
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/types"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -197,7 +197,7 @@ func (r *rta) visitDynCall(site ssa.CallInstruction) {
 func (r *rta) addInvokeEdge(site ssa.CallInstruction, C types.Type) {
 	// Ascertain the concrete method of C to be called.
 	imethod := site.Common().Method
-	cmethod := r.prog.MethodValue(r.prog.MethodSets.MethodSet(C).Lookup(imethod.Pkg(), imethod.Name()))
+	cmethod := r.prog.Method(r.prog.MethodSets.MethodSet(C).Lookup(imethod.Pkg(), imethod.Name()))
 	r.addEdge(site, cmethod, true)
 }
 
@@ -361,7 +361,7 @@ func (r *rta) addRuntimeType(T types.Type, skip bool) {
 
 			if m.Exported() {
 				// Exported methods are always potentially callable via reflection.
-				r.addReachable(r.prog.MethodValue(sel), true)
+				r.addReachable(r.prog.Method(sel), true)
 			}
 		}
 

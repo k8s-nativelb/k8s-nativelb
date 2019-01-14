@@ -128,31 +128,26 @@ func (f *FarmController) needToAddIngressIpFromFarm(service *corev1.Service, far
 }
 
 func (f *FarmController) createOrUpdateFarm(farm *v1.Farm, service *corev1.Service, clusterInstance *v1.Cluster, needToCreate bool) error {
-	// TODO: Need to change this!!!!
-	//if farm.Spec.Cluster != clusterInstance.Name {
-	//	err := f.clusterController.DeleteFarm(farm, clusterInstance)
-	//	if err != nil {
-	//		// TODO: Change this use deepCopy
-	//		deletedProviderFarm, err := f.createFarmObject(service,
-	//			fmt.Sprintf("%s-%s-%s", service.Namespace,
-	//				clusterInstance.Name,
-	//				service.Name), clusterInstance)
-	//		if err != nil {
-	//			log.Log.Errorf("fail to create a new farm for a delete service object error %v", err)
-	//		}
-	//
-	//		f.FarmUpdateFailDeleteStatus(deletedProviderFarm, "Warning", "FarmDeleteFail", err.Error())
-	//		deletedProviderFarm, err = f.Farm().Update(deletedProviderFarm)
-	//		if err != nil {
-	//			log.Log.V(2).Error("Fail to create a new farm for for the deleted farm on cluster")
-	//		}
-	//	}
-	//
-	//	delete(service.Labels, v1.ServiceStatusLabel)
-	//	f.Farm().Delete(farm.Name)
-	//	//f.createFarm(service)
-	//	return
-	//}
+	if farm.Spec.Cluster != clusterInstance.Name {
+		err := f.clusterController.DeleteFarm(farm, clusterInstance)
+		if err != nil {
+			deletedProviderFarm, err := f.createFarmObject(service,
+				fmt.Sprintf("%s-%s-%s", service.Namespace,
+					clusterInstance.Name,
+					service.Name), clusterInstance)
+			if err != nil {
+				log.Log.Errorf("fail to create a new farm for a delete service object error %v", err)
+			}
+
+			f.FarmUpdateFailDeleteStatus(deletedProviderFarm, "Warning", "FarmDeleteFail", err.Error())
+			deletedProviderFarm, err = f.Farm().Update(deletedProviderFarm)
+			if err != nil {
+				log.Log.V(2).Error("Fail to create a new farm for for the deleted farm on cluster")
+			}
+		}
+
+		farm.Spec.Cluster = clusterInstance.Name
+	}
 
 	farm.Spec.Ports = service.Spec.Ports
 	nodeList, err := f.getNodeList(service, clusterInstance)

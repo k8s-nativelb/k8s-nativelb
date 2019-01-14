@@ -3,14 +3,17 @@ package tests
 import (
 	"fmt"
 	nativelb "github.com/k8s-nativelb/pkg/apis/nativelb/v1"
+	"k8s.io/client-go/rest"
+
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 type TestClient struct {
@@ -20,9 +23,23 @@ type TestClient struct {
 }
 
 func NewTestClient() (*TestClient, error) {
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
+	t := &envtest.Environment{
+		UseExistingCluster:true,
+	}
+
+	err := nativelb.SchemeBuilder.AddToScheme(scheme.Scheme)
 	if err != nil {
+		return nil, err
+	}
+
+	var cfg *rest.Config
+	var c client.Client
+
+	if cfg, err = t.Start(); err != nil {
+		return nil, err
+	}
+
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		return nil, err
 	}
 
@@ -31,7 +48,7 @@ func NewTestClient() (*TestClient, error) {
 		return nil, err
 	}
 
-	nativelbClient, err := kubecli.GetNativelbClient()
+	nativelbClient, err := kubecli.GetNativelbClient(cfg,c)
 	if err != nil {
 		return nil, err
 	}

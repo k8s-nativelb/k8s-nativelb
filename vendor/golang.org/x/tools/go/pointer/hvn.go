@@ -1,7 +1,3 @@
-// Copyright 2013 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package pointer
 
 // This file implements Hash-Value Numbering (HVN), a pre-solver
@@ -74,7 +70,7 @@ package pointer
 //
 // PERFORMANCE
 //
-// In two benchmarks (guru and godoc), HVN eliminates about two thirds
+// In two benchmarks (oracle and godoc), HVN eliminates about two thirds
 // of nodes, the majority accounted for by non-pointers: nodes of
 // non-pointer type, pointers that remain nil, formal parameters of dead
 // functions, nodes of untracked types, etc.  It also reduces the number
@@ -163,11 +159,11 @@ package pointer
 
 import (
 	"fmt"
-	"go/types"
 	"io"
 	"reflect"
 
 	"golang.org/x/tools/container/intsets"
+	"golang.org/x/tools/go/types"
 )
 
 // A peLabel is a pointer-equivalence label: two nodes with the same
@@ -533,7 +529,7 @@ func (h *hvn) markIndirectNodes() {
 		if tArray, ok := h.a.nodes[id].typ.(*types.Array); ok {
 			// Mark the array element nodes indirect.
 			// (Skip past the identity field.)
-			for range h.a.flatten(tArray.Elem()) {
+			for _ = range h.a.flatten(tArray.Elem()) {
 				id++
 				h.markIndirect(onodeid(id), "array elem")
 			}

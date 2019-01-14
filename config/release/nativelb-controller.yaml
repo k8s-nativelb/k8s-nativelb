@@ -19,7 +19,7 @@ spec:
         control-plane: nativelb-controller
     spec:
       containers:
-        - image: quay.io/k8s-nativelb/nativelb-controller:latest
+        - image: registry:5000/k8s-nativelb/nativelb-controller:latest
           imagePullPolicy: Always
           name: controller
           resources:

@@ -54,11 +54,11 @@ fmt:
 	go fmt ./pkg/... ./cmd/...
 
 # Run tests
-test: generate vet fmt
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+test:
+	go test -v -race ./pkg/... ./cmd/... -coverprofile cover.out 
 
 functest:
-	go test ./tests/.
+	go test -v -race ./tests/.
 
 goveralls:
 	./hack/goveralls.sh

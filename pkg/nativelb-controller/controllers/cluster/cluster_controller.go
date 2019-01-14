@@ -55,6 +55,8 @@ func NewClusterController(nativelbClient kubecli.NativelbClient, agentController
 	clusterController := &ClusterController{NativelbClient: nativelbClient, Controller: controllerInstance,
 		Reconcile: reconcileInstance, agentController: agentController, allocator: make(map[string]*Allocator), clusterConnection: clusterConnection}
 
+	go clusterController.KeepAliveAgents()
+
 	return clusterController, nil
 }
 

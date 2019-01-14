@@ -10,9 +10,10 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"go/types"
 
 	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/types"
+	"golang.org/x/tools/refactor/lexical"
 	"golang.org/x/tools/refactor/satisfy"
 )
 
@@ -38,7 +39,7 @@ func (r *renamer) check(from types.Object) {
 		r.checkInPackageBlock(from)
 	} else if v, ok := from.(*types.Var); ok && v.IsField() {
 		r.checkStructField(v)
-	} else if f, ok := from.(*types.Func); ok && recv(f) != nil {
+	} else if f, ok := from.(*types.Func); ok && f.Type().(*types.Signature).Recv() != nil {
 		r.checkMethod(f)
 	} else if isLocal(from) {
 		r.checkInLocalScope(from)
@@ -100,20 +101,18 @@ func (r *renamer) checkInPackageBlock(from types.Object) {
 	}
 
 	info := r.packages[from.Pkg()]
+	lexinfo := lexical.Structure(r.iprog.Fset, from.Pkg(), &info.Info, info.Files)
 
 	// Check that in the package block, "init" is a function, and never referenced.
 	if r.to == "init" {
 		kind := objectKind(from)
 		if kind == "func" {
 			// Reject if intra-package references to it exist.
-			for id, obj := range info.Uses {
-				if obj == from {
-					r.errorf(from.Pos(),
-						"renaming this func %q to %q would make it a package initializer",
-						from.Name(), r.to)
-					r.errorf(id.Pos(), "\tbut references to it exist")
-					break
-				}
+			if refs := lexinfo.Refs[from]; len(refs) > 0 {
+				r.errorf(from.Pos(),
+					"renaming this func %q to %q would make it a package initializer",
+					from.Name(), r.to)
+				r.errorf(refs[0].Id.Pos(), "\tbut references to it exist")
 			}
 		} else {
 			r.errorf(from.Pos(), "you cannot have a %s at package level named %q",
@@ -123,9 +122,7 @@ func (r *renamer) checkInPackageBlock(from types.Object) {
 
 	// Check for conflicts between package block and all file blocks.
 	for _, f := range info.Files {
-		fileScope := info.Info.Scopes[f]
-		b, prev := fileScope.LookupParent(r.to, token.NoPos)
-		if b == fileScope {
+		if prev, b := lexinfo.Blocks[f].Lookup(r.to); b == lexinfo.Blocks[f] {
 			r.errorf(from.Pos(), "renaming this %s %q to %q would conflict",
 				objectKind(from), from.Name(), r.to)
 			r.errorf(prev.Pos(), "\twith this %s",
@@ -180,7 +177,7 @@ func (r *renamer) checkInLocalScope(from types.Object) {
 // same-, sub-, and super-block conflicts.  We will illustrate all three
 // using this example:
 //
-//	var x int
+//      var x int
 //	var z int
 //
 //	func f(y int) {
@@ -208,9 +205,11 @@ func (r *renamer) checkInLocalScope(from types.Object) {
 // requires no checks.
 //
 func (r *renamer) checkInLexicalScope(from types.Object, info *loader.PackageInfo) {
-	b := from.Parent() // the block defining the 'from' object
+	lexinfo := lexical.Structure(r.iprog.Fset, info.Pkg, &info.Info, info.Files)
+
+	b := lexinfo.Defs[from] // the block defining the 'from' object
 	if b != nil {
-		toBlock, to := b.LookupParent(r.to, from.Parent().End())
+		to, toBlock := b.Lookup(r.to)
 		if toBlock == b {
 			// same-block conflict
 			r.errorf(from.Pos(), "renaming this %s %q to %q",
@@ -222,45 +221,42 @@ func (r *renamer) checkInLexicalScope(from types.Object, info *loader.PackageInf
 			// Check for super-block conflict.
 			// The name r.to is defined in a superblock.
 			// Is that name referenced from within this block?
-			forEachLexicalRef(info, to, func(id *ast.Ident, block *types.Scope) bool {
-				_, obj := lexicalLookup(block, from.Name(), id.Pos())
-				if obj == from {
+			for _, ref := range lexinfo.Refs[to] {
+				if obj, _ := ref.Env.Lookup(from.Name()); obj == from {
 					// super-block conflict
 					r.errorf(from.Pos(), "renaming this %s %q to %q",
 						objectKind(from), from.Name(), r.to)
-					r.errorf(id.Pos(), "\twould shadow this reference")
+					r.errorf(ref.Id.Pos(), "\twould shadow this reference")
 					r.errorf(to.Pos(), "\tto the %s declared here",
 						objectKind(to))
-					return false // stop
+					return
 				}
-				return true
-			})
+			}
 		}
 	}
 
 	// Check for sub-block conflict.
 	// Is there an intervening definition of r.to between
 	// the block defining 'from' and some reference to it?
-	forEachLexicalRef(info, from, func(id *ast.Ident, block *types.Scope) bool {
-		// Find the block that defines the found reference.
-		// It may be an ancestor.
-		fromBlock, _ := lexicalLookup(block, from.Name(), id.Pos())
+	for _, ref := range lexinfo.Refs[from] {
+		// TODO(adonovan): think about dot imports.
+		// (Is b == fromBlock an invariant?)
+		_, fromBlock := ref.Env.Lookup(from.Name())
+		fromDepth := fromBlock.Depth()
 
-		// See what r.to would resolve to in the same scope.
-		toBlock, to := lexicalLookup(block, r.to, id.Pos())
+		to, toBlock := ref.Env.Lookup(r.to)
 		if to != nil {
 			// sub-block conflict
-			if deeper(toBlock, fromBlock) {
+			if toBlock.Depth() > fromDepth {
 				r.errorf(from.Pos(), "renaming this %s %q to %q",
 					objectKind(from), from.Name(), r.to)
-				r.errorf(id.Pos(), "\twould cause this reference to become shadowed")
+				r.errorf(ref.Id.Pos(), "\twould cause this reference to become shadowed")
 				r.errorf(to.Pos(), "\tby this intervening %s definition",
 					objectKind(to))
-				return false // stop
+				return
 			}
 		}
-		return true
-	})
+	}
 
 	// Renaming a type that is used as an embedded field
 	// requires renaming the field too. e.g.
@@ -276,123 +272,6 @@ func (r *renamer) checkInLexicalScope(from types.Object, info *loader.PackageInf
 			}
 		}
 	}
-}
-
-// lexicalLookup is like (*types.Scope).LookupParent but respects the
-// environment visible at pos.  It assumes the relative position
-// information is correct with each file.
-func lexicalLookup(block *types.Scope, name string, pos token.Pos) (*types.Scope, types.Object) {
-	for b := block; b != nil; b = b.Parent() {
-		obj := b.Lookup(name)
-		// The scope of a package-level object is the entire package,
-		// so ignore pos in that case.
-		// No analogous clause is needed for file-level objects
-		// since no reference can appear before an import decl.
-		if obj != nil && (b == obj.Pkg().Scope() || obj.Pos() < pos) {
-			return b, obj
-		}
-	}
-	return nil, nil
-}
-
-// deeper reports whether block x is lexically deeper than y.
-func deeper(x, y *types.Scope) bool {
-	if x == y || x == nil {
-		return false
-	} else if y == nil {
-		return true
-	} else {
-		return deeper(x.Parent(), y.Parent())
-	}
-}
-
-// forEachLexicalRef calls fn(id, block) for each identifier id in package
-// info that is a reference to obj in lexical scope.  block is the
-// lexical block enclosing the reference.  If fn returns false the
-// iteration is terminated and findLexicalRefs returns false.
-func forEachLexicalRef(info *loader.PackageInfo, obj types.Object, fn func(id *ast.Ident, block *types.Scope) bool) bool {
-	ok := true
-	var stack []ast.Node
-
-	var visit func(n ast.Node) bool
-	visit = func(n ast.Node) bool {
-		if n == nil {
-			stack = stack[:len(stack)-1] // pop
-			return false
-		}
-		if !ok {
-			return false // bail out
-		}
-
-		stack = append(stack, n) // push
-		switch n := n.(type) {
-		case *ast.Ident:
-			if info.Uses[n] == obj {
-				block := enclosingBlock(&info.Info, stack)
-				if !fn(n, block) {
-					ok = false
-				}
-			}
-			return visit(nil) // pop stack
-
-		case *ast.SelectorExpr:
-			// don't visit n.Sel
-			ast.Inspect(n.X, visit)
-			return visit(nil) // pop stack, don't descend
-
-		case *ast.CompositeLit:
-			// Handle recursion ourselves for struct literals
-			// so we don't visit field identifiers.
-			tv := info.Types[n]
-			if _, ok := deref(tv.Type).Underlying().(*types.Struct); ok {
-				if n.Type != nil {
-					ast.Inspect(n.Type, visit)
-				}
-				for _, elt := range n.Elts {
-					if kv, ok := elt.(*ast.KeyValueExpr); ok {
-						ast.Inspect(kv.Value, visit)
-					} else {
-						ast.Inspect(elt, visit)
-					}
-				}
-				return visit(nil) // pop stack, don't descend
-			}
-		}
-		return true
-	}
-
-	for _, f := range info.Files {
-		ast.Inspect(f, visit)
-		if len(stack) != 0 {
-			panic(stack)
-		}
-		if !ok {
-			break
-		}
-	}
-	return ok
-}
-
-// enclosingBlock returns the innermost block enclosing the specified
-// AST node, specified in the form of a path from the root of the file,
-// [file...n].
-func enclosingBlock(info *types.Info, stack []ast.Node) *types.Scope {
-	for i := range stack {
-		n := stack[len(stack)-1-i]
-		// For some reason, go/types always associates a
-		// function's scope with its FuncType.
-		// TODO(adonovan): feature or a bug?
-		switch f := n.(type) {
-		case *ast.FuncDecl:
-			n = f.Type
-		case *ast.FuncLit:
-			n = f.Type
-		}
-		if b := info.Scopes[n]; b != nil {
-			return b
-		}
-	}
-	panic("no Scope for *ast.File")
 }
 
 func (r *renamer) checkLabel(label *types.Label) {
@@ -551,7 +430,7 @@ func (r *renamer) selectionConflict(from types.Object, delta int, syntax *ast.Se
 		// analogous to sub-block conflict
 		r.errorf(syntax.Sel.Pos(),
 			"\twould change the referent of this selection")
-		r.errorf(obj.Pos(), "\tof this %s", objectKind(obj))
+		r.errorf(obj.Pos(), "\tto this %s", objectKind(obj))
 	case delta == 0:
 		// analogous to same-block conflict
 		r.errorf(syntax.Sel.Pos(),
@@ -561,7 +440,7 @@ func (r *renamer) selectionConflict(from types.Object, delta int, syntax *ast.Se
 		// analogous to super-block conflict
 		r.errorf(syntax.Sel.Pos(),
 			"\twould shadow this selection")
-		r.errorf(obj.Pos(), "\tof the %s declared here",
+		r.errorf(obj.Pos(), "\tto the %s declared here",
 			objectKind(obj))
 	}
 }
@@ -570,11 +449,7 @@ func (r *renamer) selectionConflict(from types.Object, delta int, syntax *ast.Se
 // There are three hazards:
 // - declaration conflicts
 // - selection ambiguity/changes
-// - entailed renamings of assignable concrete/interface types.
-//   We reject renamings initiated at concrete methods if it would
-//   change the assignability relation.  For renamings of abstract
-//   methods, we rename all methods transitively coupled to it via
-//   assignability.
+// - entailed renamings of assignable concrete/interface types (for now, just reject)
 func (r *renamer) checkMethod(from *types.Func) {
 	// e.g. error.Error
 	if from.Pkg() == nil {
@@ -582,20 +457,50 @@ func (r *renamer) checkMethod(from *types.Func) {
 		return
 	}
 
-	// ASSIGNABILITY: We reject renamings of concrete methods that
-	// would break a 'satisfy' constraint; but renamings of abstract
-	// methods are allowed to proceed, and we rename affected
-	// concrete and abstract methods as necessary.  It is the
-	// initial method that determines the policy.
+	// As always, having to support concrete methods with pointer
+	// and non-pointer receivers, and named vs unnamed types with
+	// methods, makes tooling fun.
+
+	// ASSIGNABILITY
+	//
+	// For now, if any method renaming breaks a required
+	// assignability to another type, we reject it.
+	//
+	// TODO(adonovan): probably we should compute the entailed
+	// renamings so that an interface method renaming causes
+	// concrete methods to change too.  But which ones?
+	//
+	// There is no correct answer, only heuristics, because Go's
+	// "duck typing" doesn't distinguish intentional from contingent
+	// assignability.  There are two obvious approaches:
+	//
+	// (1) Update the minimum set of types to preserve the
+	//     assignability of types all syntactic assignments
+	//     (incl. implicit ones in calls, returns, sends, etc).
+	//     The satisfy.Finder enumerates these.
+	//     This is likely to be an underapproximation.
+	//
+	// (2) Update all types that are assignable to/from the changed
+	//     type.  This requires computing the "implements" relation
+	//     for all pairs of types (as godoc and oracle do).
+	//     This is likely to be an overapproximation.
+	//
+	// If a concrete type is renamed, we probably do not want to
+	// rename corresponding interfaces; interface renamings should
+	// probably be initiated at the interface.  (But what if a
+	// concrete type implements multiple interfaces with the same
+	// method?  Then the user is stuck.)
+	//
+	// We need some experience before we decide how to implement this.
 
 	// Check for conflict at point of declaration.
 	// Check to ensure preservation of assignability requirements.
-	R := recv(from).Type()
-	if isInterface(R) {
+	recv := from.Type().(*types.Signature).Recv().Type()
+	if isInterface(recv) {
 		// Abstract method
 
 		// declaration
-		prev, _, _ := types.LookupFieldOrMethod(R, false, from.Pkg(), r.to)
+		prev, _, _ := types.LookupFieldOrMethod(recv, false, from.Pkg(), r.to)
 		if prev != nil {
 			r.errorf(from.Pos(), "renaming this interface method %q to %q",
 				from.Name(), r.to)
@@ -637,100 +542,30 @@ func (r *renamer) checkMethod(from *types.Func) {
 		}
 
 		// assignability
-		//
-		// Find the set of concrete or abstract methods directly
-		// coupled to abstract method 'from' by some
-		// satisfy.Constraint, and rename them too.
-		for key := range r.satisfy() {
-			// key = (lhs, rhs) where lhs is always an interface.
-
-			lsel := r.msets.MethodSet(key.LHS).Lookup(from.Pkg(), from.Name())
-			if lsel == nil {
-				continue
-			}
-			rmethods := r.msets.MethodSet(key.RHS)
-			rsel := rmethods.Lookup(from.Pkg(), from.Name())
-			if rsel == nil {
+		for T := range r.findAssignments(recv) {
+			if obj, _, _ := types.LookupFieldOrMethod(T, false, from.Pkg(), from.Name()); obj == nil {
 				continue
 			}
 
-			// If both sides have a method of this name,
-			// and one of them is m, the other must be coupled.
-			var coupled *types.Func
-			switch from {
-			case lsel.Obj():
-				coupled = rsel.Obj().(*types.Func)
-			case rsel.Obj():
-				coupled = lsel.Obj().(*types.Func)
-			default:
-				continue
+			r.errorf(from.Pos(), "renaming this method %q to %q",
+				from.Name(), r.to)
+			var pos token.Pos
+			var other string
+			if named, ok := T.(*types.Named); ok {
+				pos = named.Obj().Pos()
+				other = named.Obj().Name()
+			} else {
+				pos = from.Pos()
+				other = T.String()
 			}
-
-			// We must treat concrete-to-interface
-			// constraints like an implicit selection C.f of
-			// each interface method I.f, and check that the
-			// renaming leaves the selection unchanged and
-			// unambiguous.
-			//
-			// Fun fact: the implicit selection of C.f
-			// 	type I interface{f()}
-			// 	type C struct{I}
-			// 	func (C) g()
-			//      var _ I = C{} // here
-			// yields abstract method I.f.  This can make error
-			// messages less than obvious.
-			//
-			if !isInterface(key.RHS) {
-				// The logic below was derived from checkSelections.
-
-				rtosel := rmethods.Lookup(from.Pkg(), r.to)
-				if rtosel != nil {
-					rto := rtosel.Obj().(*types.Func)
-					delta := len(rsel.Index()) - len(rtosel.Index())
-					if delta < 0 {
-						continue // no ambiguity
-					}
-
-					// TODO(adonovan): record the constraint's position.
-					keyPos := token.NoPos
-
-					r.errorf(from.Pos(), "renaming this method %q to %q",
-						from.Name(), r.to)
-					if delta == 0 {
-						// analogous to same-block conflict
-						r.errorf(keyPos, "\twould make the %s method of %s invoked via interface %s ambiguous",
-							r.to, key.RHS, key.LHS)
-						r.errorf(rto.Pos(), "\twith (%s).%s",
-							recv(rto).Type(), r.to)
-					} else {
-						// analogous to super-block conflict
-						r.errorf(keyPos, "\twould change the %s method of %s invoked via interface %s",
-							r.to, key.RHS, key.LHS)
-						r.errorf(coupled.Pos(), "\tfrom (%s).%s",
-							recv(coupled).Type(), r.to)
-						r.errorf(rto.Pos(), "\tto (%s).%s",
-							recv(rto).Type(), r.to)
-					}
-					return // one error is enough
-				}
-			}
-
-			if !r.changeMethods {
-				// This should be unreachable.
-				r.errorf(from.Pos(), "internal error: during renaming of abstract method %s", from)
-				r.errorf(coupled.Pos(), "\tchangedMethods=false, coupled method=%s", coupled)
-				r.errorf(from.Pos(), "\tPlease file a bug report")
-				return
-			}
-
-			// Rename the coupled method to preserve assignability.
-			r.check(coupled)
+			r.errorf(pos, "\twould make %s no longer assignable to it", other)
+			return
 		}
 	} else {
 		// Concrete method
 
 		// declaration
-		prev, indices, _ := types.LookupFieldOrMethod(R, true, from.Pkg(), r.to)
+		prev, indices, _ := types.LookupFieldOrMethod(recv, true, from.Pkg(), r.to)
 		if prev != nil && len(indices) == 1 {
 			r.errorf(from.Pos(), "renaming this method %q to %q",
 				from.Name(), r.to)
@@ -739,44 +574,17 @@ func (r *renamer) checkMethod(from *types.Func) {
 			return
 		}
 
-		// assignability
-		//
-		// Find the set of abstract methods coupled to concrete
-		// method 'from' by some satisfy.Constraint, and rename
-		// them too.
-		//
-		// Coupling may be indirect, e.g. I.f <-> C.f via type D.
-		//
-		// 	type I interface {f()}
-		//	type C int
-		//	type (C) f()
-		//	type D struct{C}
-		//	var _ I = D{}
-		//
-		for key := range r.satisfy() {
-			// key = (lhs, rhs) where lhs is always an interface.
-			if isInterface(key.RHS) {
-				continue
-			}
-			rsel := r.msets.MethodSet(key.RHS).Lookup(from.Pkg(), from.Name())
-			if rsel == nil || rsel.Obj() != from {
-				continue // rhs does not have the method
-			}
-			lsel := r.msets.MethodSet(key.LHS).Lookup(from.Pkg(), from.Name())
-			if lsel == nil {
-				continue
-			}
-			imeth := lsel.Obj().(*types.Func)
-
-			// imeth is the abstract method (e.g. I.f)
-			// and key.RHS is the concrete coupling type (e.g. D).
-			if !r.changeMethods {
+		// assignability (of both T and *T)
+		recvBase := deref(recv)
+		for _, R := range []types.Type{recvBase, types.NewPointer(recvBase)} {
+			for I := range r.findAssignments(R) {
+				if obj, _, _ := types.LookupFieldOrMethod(I, true, from.Pkg(), from.Name()); obj == nil {
+					continue
+				}
 				r.errorf(from.Pos(), "renaming this method %q to %q",
 					from.Name(), r.to)
 				var pos token.Pos
 				var iface string
-
-				I := recv(imeth).Type()
 				if named, ok := I.(*types.Named); ok {
 					pos = named.Obj().Pos()
 					iface = "interface " + named.Obj().Name()
@@ -784,15 +592,9 @@ func (r *renamer) checkMethod(from *types.Func) {
 					pos = from.Pos()
 					iface = I.String()
 				}
-				r.errorf(pos, "\twould make %s no longer assignable to %s",
-					key.RHS, iface)
-				r.errorf(imeth.Pos(), "\t(rename %s.%s if you intend to change both types)",
-					I, from.Name())
-				return // one error is enough
+				r.errorf(pos, "\twould make it no longer assignable to %s", iface)
+				return // one is enough
 			}
-
-			// Rename the coupled interface method to preserve assignability.
-			r.check(imeth)
 		}
 	}
 
@@ -816,8 +618,9 @@ func (r *renamer) checkExport(id *ast.Ident, pkg *types.Package, from types.Obje
 	return true
 }
 
-// satisfy returns the set of interface satisfaction constraints.
-func (r *renamer) satisfy() map[satisfy.Constraint]bool {
+// findAssignments returns the set of types to or from which type T is
+// assigned in the program syntax.
+func (r *renamer) findAssignments(T types.Type) map[types.Type]bool {
 	if r.satisfyConstraints == nil {
 		// Compute on demand: it's expensive.
 		var f satisfy.Finder
@@ -826,15 +629,22 @@ func (r *renamer) satisfy() map[satisfy.Constraint]bool {
 		}
 		r.satisfyConstraints = f.Result
 	}
-	return r.satisfyConstraints
+
+	result := make(map[types.Type]bool)
+	for key := range r.satisfyConstraints {
+		// key = (lhs, rhs) where lhs is always an interface.
+		if types.Identical(key.RHS, T) {
+			result[key.LHS] = true
+		}
+		if isInterface(T) && types.Identical(key.LHS, T) {
+			// must check both sides
+			result[key.RHS] = true
+		}
+	}
+	return result
 }
 
 // -- helpers ----------------------------------------------------------
-
-// recv returns the method's receiver.
-func recv(meth *types.Func) *types.Var {
-	return meth.Type().(*types.Signature).Recv()
-}
 
 // someUse returns an arbitrary use of obj within info.
 func someUse(info *loader.PackageInfo, obj types.Object) *ast.Ident {
@@ -848,7 +658,10 @@ func someUse(info *loader.PackageInfo, obj types.Object) *ast.Ident {
 
 // -- Plundered from golang.org/x/tools/go/ssa -----------------
 
-func isInterface(T types.Type) bool { return types.IsInterface(T) }
+func isInterface(T types.Type) bool {
+	_, ok := T.Underlying().(*types.Interface)
+	return ok
+}
 
 func deref(typ types.Type) types.Type {
 	if p, _ := typ.(*types.Pointer); p != nil {

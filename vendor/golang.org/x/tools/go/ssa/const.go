@@ -8,10 +8,11 @@ package ssa
 
 import (
 	"fmt"
-	exact "go/constant"
 	"go/token"
-	"go/types"
 	"strconv"
+
+	"golang.org/x/tools/go/exact"
+	"golang.org/x/tools/go/types"
 )
 
 // NewConst returns a new constant of the specified value and type.
@@ -115,13 +116,11 @@ func (c *Const) IsNil() bool {
 	return c.Value == nil
 }
 
-// TODO(adonovan): move everything below into golang.org/x/tools/go/ssa/interp.
-
 // Int64 returns the numeric value of this constant truncated to fit
 // a signed 64-bit integer.
 //
 func (c *Const) Int64() int64 {
-	switch x := exact.ToInt(c.Value); x.Kind() {
+	switch x := c.Value; x.Kind() {
 	case exact.Int:
 		if i, ok := exact.Int64Val(x); ok {
 			return i
@@ -138,7 +137,7 @@ func (c *Const) Int64() int64 {
 // an unsigned 64-bit integer.
 //
 func (c *Const) Uint64() uint64 {
-	switch x := exact.ToInt(c.Value); x.Kind() {
+	switch x := c.Value; x.Kind() {
 	case exact.Int:
 		if u, ok := exact.Uint64Val(x); ok {
 			return u

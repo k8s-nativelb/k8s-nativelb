@@ -19,6 +19,7 @@ import (
 	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/nativelb-agent/keepalived"
 	"github.com/k8s-nativelb/pkg/nativelb-agent/loadbalancer"
+	"github.com/k8s-nativelb/pkg/nativelb-agent/udp-loadbalancer"
 	. "github.com/k8s-nativelb/pkg/proto"
 
 	"github.com/vishvananda/netlink"
@@ -31,11 +32,12 @@ import (
 )
 
 type NativelbAgent struct {
-	agent                  *Agent
-	agentStatus            *AgentStatus
-	loadBalancerController *loadbalancer.LoadBalancer
-	keepalivedController   *keepalived.Keepalived
-	grpcServer             *grpc.Server
+	agent                     *Agent
+	agentStatus               *AgentStatus
+	loadBalancerController    loadbalancer.LoadBalancerInterface
+	udpLoadBalancerController udp_loadbalancer.UdpLoadBalancerInterface
+	keepalivedController      keepalived.KeepalivedInterface
+	grpcServer                *grpc.Server
 }
 
 func NewNativeAgent(clusterName, controlIp, controlPortStr, dataInterface, syncInterface string) (*NativelbAgent, error) {
@@ -68,19 +70,26 @@ func NewNativeAgent(clusterName, controlIp, controlPortStr, dataInterface, syncI
 
 	keepalivedController, err := keepalived.NewKeepalived(agentData.DataInterface)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create a keepalived controller error %v", err)
+		log.Log.Reason(err).Errorf("failed to create a keepalived controller error")
 		return nil, err
 	}
 
 	loadbalancerController, err := loadbalancer.NewLoadBalancer()
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create a loadbalancer controller error %v", err)
+		log.Log.Reason(err).Errorf("failed to create a loadbalancer controller")
+		return nil, err
+	}
+
+	udpLoadBalancer, err := udp_loadbalancer.NewUdpLoadBalancer()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create a udp loadbalancer(nginx) controller")
 		return nil, err
 	}
 
 	return &NativelbAgent{agent: agentData, grpcServer: grpcServer, agentStatus: &AgentStatus{Status: AgentNewStatus},
-		keepalivedController:   keepalivedController,
-		loadBalancerController: loadbalancerController}, nil
+		keepalivedController:      keepalivedController,
+		loadBalancerController:    loadbalancerController,
+		udpLoadBalancerController: udpLoadBalancer}, nil
 }
 
 func createAgentData(clusterName, controlIp string) (*Agent, error) {

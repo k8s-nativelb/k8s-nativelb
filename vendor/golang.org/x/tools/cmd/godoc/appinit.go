@@ -12,24 +12,16 @@ package main
 import (
 	"archive/zip"
 	"log"
-	"net/http"
 	"path"
-	"regexp"
 
 	"golang.org/x/tools/godoc"
-	"golang.org/x/tools/godoc/dl"
-	"golang.org/x/tools/godoc/proxy"
-	"golang.org/x/tools/godoc/short"
 	"golang.org/x/tools/godoc/static"
 	"golang.org/x/tools/godoc/vfs"
 	"golang.org/x/tools/godoc/vfs/mapfs"
 	"golang.org/x/tools/godoc/vfs/zipfs"
-
-	"google.golang.org/appengine"
 )
 
 func init() {
-	enforceHosts = !appengine.IsDevAppServer()
 	playEnabled = true
 
 	log.Println("initializing godoc ...")
@@ -57,7 +49,6 @@ func init() {
 	if err := corpus.Init(); err != nil {
 		log.Fatal(err)
 	}
-	corpus.IndexDirectory = indexDirectoryDefault
 	go corpus.RunIndexer()
 
 	pres = godoc.NewPresentation(corpus)
@@ -65,18 +56,9 @@ func init() {
 	pres.ShowPlayground = true
 	pres.ShowExamples = true
 	pres.DeclLinks = true
-	pres.NotesRx = regexp.MustCompile("BUG")
 
 	readTemplates(pres, true)
-
-	mux := registerHandlers(pres)
-	dl.RegisterHandlers(mux)
-	short.RegisterHandlers(mux)
-
-	// Register /compile and /share handlers against the default serve mux
-	// so that other app modules can make plain HTTP requests to those
-	// hosts. (For reasons, HTTPS communication between modules is broken.)
-	proxy.RegisterHandlers(http.DefaultServeMux)
+	registerHandlers(pres)
 
 	log.Println("godoc initialization complete")
 }

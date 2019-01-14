@@ -29,13 +29,12 @@ import (
 )
 
 type KeepalivedInterface interface {
-	NewFarmForInstance(*proto.Server) error
-	DeleteFarmInInstance(*proto.Server) error
-	//AddVip(string, string) error
-	//RemoveVip(string, string) error
-	//IsInstanceExistForNamespace(string) bool
+	GetPid() int32
+	WriteConfig() error
+	NewFarmForInstance(*proto.Data) error
+	DeleteFarmInInstance(*proto.Data) error
+	BuildIpsFromFarmsForNamespace(string)
 	LoadInitData(*proto.InitAgentData) error
-	reloadEngine() error
 	StartEngine() error
 	ReloadEngine() error
 	StopEngine()
@@ -55,7 +54,7 @@ type VrrpInstance struct {
 type Keepalived struct {
 	iface         string
 	pid           string
-	handler       *handler.Handler
+	handler       handler.HandlerInterface
 	tmpl          *template.Template
 	vrrpInstances map[string]*VrrpInstance
 }
@@ -139,42 +138,6 @@ func (k *Keepalived) BuildIpsFromFarmsForNamespace(namespace string) {
 	}
 }
 
-//func (k *Keepalived) addVip(namespace, ipAddr string) error {
-//	if _, ok := k.Instances[namespace]; !ok {
-//		return fmt.Errorf("failed to find instance for namespace %s", namespace)
-//	}
-//
-//	k.Instances[namespace].SecVips = append(k.Instances[namespace].SecVips, ipAddr)
-//	return k.writeCfg()
-//}
-//
-//func (k *Keepalived) removeVip(namespace, ipAddr string) error {
-//	if _, ok := k.Instances[namespace]; !ok {
-//		return fmt.Errorf("failed to find instance for namespace %s", namespace)
-//	}
-//
-//	if k.Instances[namespace].MainVip == ipAddr {
-//		if len(k.Instances[namespace].SecVips) == 0 {
-//			return fmt.Errorf("no ips left in SecVips list on namespace %s", namespace)
-//		}
-//
-//		newMainIpAddr := k.Instances[namespace].SecVips[0]
-//		k.Instances[namespace].MainVip = newMainIpAddr
-//		k.Instances[namespace].SecVips = k.Instances[namespace].SecVips[1:]
-//
-//		return k.writeCfg()
-//	}
-//
-//	for idx, value := range k.Instances[namespace].SecVips {
-//		if value == ipAddr {
-//			k.Instances[namespace].SecVips = append(k.Instances[namespace].SecVips[:idx], k.Instances[namespace].SecVips[idx+1:]...)
-//			return k.writeCfg()
-//		}
-//	}
-//
-//	return fmt.Errorf("failed to find vip for namespace %s", namespace)
-//}
-//
 func (k *Keepalived) LoadInitData(data *proto.InitAgentData) error {
 	k.vrrpInstances = make(map[string]*VrrpInstance)
 

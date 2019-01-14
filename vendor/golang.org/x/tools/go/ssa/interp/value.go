@@ -36,7 +36,6 @@ package interp
 import (
 	"bytes"
 	"fmt"
-	"go/types"
 	"io"
 	"reflect"
 	"strings"
@@ -44,6 +43,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/types"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -310,53 +310,43 @@ func hash(t types.Type, x value) int {
 	panic(fmt.Sprintf("%T is unhashable", x))
 }
 
-// reflect.Value struct values don't have a fixed shape, since the
-// payload can be a scalar or an aggregate depending on the instance.
-// So store (and load) can't simply use recursion over the shape of the
-// rhs value, or the lhs, to copy the value; we need the static type
-// information.  (We can't make reflect.Value a new basic data type
-// because its "structness" is exposed to Go programs.)
-
-// load returns the value of type T in *addr.
-func load(T types.Type, addr *value) value {
-	switch T := T.Underlying().(type) {
-	case *types.Struct:
-		v := (*addr).(structure)
+// copyVal returns a copy of value v.
+// TODO(adonovan): add tests of aliasing and mutation.
+func copyVal(v value) value {
+	if v == nil {
+		panic("copyVal(nil)")
+	}
+	switch v := v.(type) {
+	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64, complex64, complex128, string, unsafe.Pointer:
+		return v
+	case map[value]value:
+		return v
+	case *hashmap:
+		return v
+	case chan value:
+		return v
+	case *value:
+		return v
+	case *ssa.Function, *ssa.Builtin, *closure:
+		return v
+	case iface:
+		return v
+	case []value:
+		return v
+	case structure:
 		a := make(structure, len(v))
-		for i := range a {
-			a[i] = load(T.Field(i).Type(), &v[i])
-		}
+		copy(a, v)
 		return a
-	case *types.Array:
-		v := (*addr).(array)
+	case array:
 		a := make(array, len(v))
-		for i := range a {
-			a[i] = load(T.Elem(), &v[i])
-		}
+		copy(a, v)
 		return a
-	default:
-		return *addr
+	case tuple:
+		break
+	case rtype:
+		return v
 	}
-}
-
-// store stores value v of type T into *addr.
-func store(T types.Type, addr *value, v value) {
-	switch T := T.Underlying().(type) {
-	case *types.Struct:
-		lhs := (*addr).(structure)
-		rhs := v.(structure)
-		for i := range lhs {
-			store(T.Field(i).Type(), &lhs[i], rhs[i])
-		}
-	case *types.Array:
-		lhs := (*addr).(array)
-		rhs := v.(array)
-		for i := range lhs {
-			store(T.Elem(), &lhs[i], rhs[i])
-		}
-	default:
-		*addr = v
-	}
+	panic(fmt.Sprintf("cannot copy %T", v))
 }
 
 // Prints in the style of built-in println.
@@ -382,7 +372,7 @@ func writeValue(buf *bytes.Buffer, v value) {
 	case *hashmap:
 		buf.WriteString("map[")
 		sep := " "
-		for _, e := range v.entries() {
+		for _, e := range v.table {
 			for e != nil {
 				buf.WriteString(sep)
 				sep = " "

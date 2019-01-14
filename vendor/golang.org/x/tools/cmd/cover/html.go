@@ -67,9 +67,6 @@ func htmlOutput(profile, outfile string) error {
 	} else {
 		out, err = os.Create(outfile)
 	}
-	if err != nil {
-		return err
-	}
 	err = htmlTemplate.Execute(out, d)
 	if err == nil {
 		err = out.Close()

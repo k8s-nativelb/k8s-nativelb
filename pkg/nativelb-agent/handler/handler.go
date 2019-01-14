@@ -33,23 +33,31 @@ const (
 	KeepalivedCfg  = "/etc/keepalived/keepalived.conf"
 	KeepalivedTmpl = "/templates/keepalived-template.tmpl"
 	KeepalivedPID  = "/run/keepalived.pid"
+
+	NginxConfigFile   = "/etc/nginx/nginx.conf"
+	NginxTemplateFile = "/templates/nginx-template.tmpl"
+	NginxPID          = "/run/nginx.pid"
 )
 
 type HandlerInterface interface {
-	GetPid(string) (int32, error)
+	GetPid(string) (string, error)
 	CheckHaproxyConfig() (string, error)
+	CheckNginxConfig() (string, error)
 	CheckKeepalivedConfig() (string, error)
 	StartHaproxy() (string, error)
+	StartNginx() (string, error)
 	StartKeepalived() (string, error)
 	ReloadHaproxy(string) (string, error)
+	ReloadNginx(string) (string, error)
 	ReloadKeepalived(string) (string, error)
 	StopHaproxy(string) error
+	StopNginx(string) error
 	StopKeepalived(string) error
 }
 
 type Handler struct{}
 
-func (h *Handler) getPid(fileName string) (string, error) {
+func (h *Handler) GetPid(fileName string) (string, error) {
 	cmd := exec.Command("cat", fileName)
 	pid, err := cmd.Output()
 	if err != nil {
@@ -76,6 +84,17 @@ func (h *Handler) CheckHaproxyConfig() (string, error) {
 	return string(stdoutStderr), nil
 }
 
+func (h *Handler) CheckNginxConfig() (string, error) {
+	cmd := exec.Command("nginx", "-t")
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Log.Reason(err).Errorf("nginx configuration test failed")
+		return "", err
+	}
+
+	return string(stdoutStderr), nil
+}
+
 // TODO: Need to check this
 func (h *Handler) CheckKeepalivedConfig() (string, error) {
 	return "", nil
@@ -91,7 +110,20 @@ func (h *Handler) StartHaproxy() (string, error) {
 
 	log.Log.Infof("haproxy process started output %s", stdoutStderr)
 
-	return h.getPid(HaproxyPID)
+	return h.GetPid(HaproxyPID)
+}
+
+func (h *Handler) StartNginx() (string, error) {
+	cmd := exec.Command("nginx")
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to start nginx")
+		return "", err
+	}
+
+	log.Log.Infof("nginx process started output %s", stdoutStderr)
+
+	return h.GetPid(NginxPID)
 }
 
 func (h *Handler) StartKeepalived() (string, error) {
@@ -102,7 +134,7 @@ func (h *Handler) StartKeepalived() (string, error) {
 	}
 	log.Log.Infof("keepalived process started output %s", stdoutStderr)
 
-	return h.getPid(KeepalivedPID)
+	return h.GetPid(KeepalivedPID)
 }
 
 func (h *Handler) ReloadHaproxy(pid string) (string, error) {
@@ -115,7 +147,20 @@ func (h *Handler) ReloadHaproxy(pid string) (string, error) {
 
 	log.Log.Infof("haproxy engine reloaded output %s", string(stdoutStderr))
 
-	return h.getPid(HaproxyPID)
+	return h.GetPid(HaproxyPID)
+}
+
+func (h *Handler) ReloadNginx(pid string) (string, error) {
+	cmd := exec.Command("nginx", "-s", "reload")
+	stdoutStderr, err := cmd.Output()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to reaload nginx engine")
+		return "", err
+	}
+
+	log.Log.Infof("nginx engine reloaded output %s", string(stdoutStderr))
+
+	return h.GetPid(NginxPID)
 }
 
 func (h *Handler) ReloadKeepalived(pid string) (string, error) {
@@ -128,7 +173,7 @@ func (h *Handler) ReloadKeepalived(pid string) (string, error) {
 
 	log.Log.Infof("keepalived process configuration reloaded output %s", stdoutStderr)
 
-	return h.getPid(KeepalivedPID)
+	return h.GetPid(KeepalivedPID)
 }
 
 func (h *Handler) StopHaproxy(pid string) error {
@@ -142,6 +187,24 @@ func (h *Handler) StopHaproxy(pid string) error {
 	log.Log.Infof("haproxy stopped output %s", string(stdoutStderr))
 
 	err = os.Remove(HaproxyPID)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to remove %s file", HaproxyPID)
+	}
+
+	return nil
+}
+
+func (h *Handler) StopNginx(pid string) error {
+	log.Log.Infof("stoping nginx process with pid %s", pid)
+	cmd := exec.Command("nginx", "-s", "stop")
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	log.Log.Infof("nginx stopped output %s", string(stdoutStderr))
+
+	err = os.Remove(NginxPID)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to remove %s file", HaproxyPID)
 	}

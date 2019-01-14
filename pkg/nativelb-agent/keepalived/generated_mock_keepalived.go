@@ -33,8 +33,36 @@ func (m *MockKeepalivedInterface) EXPECT() *MockKeepalivedInterfaceMockRecorder 
 	return m.recorder
 }
 
+// GetPid mocks base method
+func (m *MockKeepalivedInterface) GetPid() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPid")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetPid indicates an expected call of GetPid
+func (mr *MockKeepalivedInterfaceMockRecorder) GetPid() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPid", reflect.TypeOf((*MockKeepalivedInterface)(nil).GetPid))
+}
+
+// WriteConfig mocks base method
+func (m *MockKeepalivedInterface) WriteConfig() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteConfig indicates an expected call of WriteConfig
+func (mr *MockKeepalivedInterfaceMockRecorder) WriteConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockKeepalivedInterface)(nil).WriteConfig))
+}
+
 // NewFarmForInstance mocks base method
-func (m *MockKeepalivedInterface) NewFarmForInstance(arg0 *proto.Server) error {
+func (m *MockKeepalivedInterface) NewFarmForInstance(arg0 *proto.Data) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewFarmForInstance", arg0)
 	ret0, _ := ret[0].(error)
@@ -48,7 +76,7 @@ func (mr *MockKeepalivedInterfaceMockRecorder) NewFarmForInstance(arg0 interface
 }
 
 // DeleteFarmInInstance mocks base method
-func (m *MockKeepalivedInterface) DeleteFarmInInstance(arg0 *proto.Server) error {
+func (m *MockKeepalivedInterface) DeleteFarmInInstance(arg0 *proto.Data) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteFarmInInstance", arg0)
 	ret0, _ := ret[0].(error)
@@ -59,6 +87,18 @@ func (m *MockKeepalivedInterface) DeleteFarmInInstance(arg0 *proto.Server) error
 func (mr *MockKeepalivedInterfaceMockRecorder) DeleteFarmInInstance(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFarmInInstance", reflect.TypeOf((*MockKeepalivedInterface)(nil).DeleteFarmInInstance), arg0)
+}
+
+// BuildIpsFromFarmsForNamespace mocks base method
+func (m *MockKeepalivedInterface) BuildIpsFromFarmsForNamespace(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "BuildIpsFromFarmsForNamespace", arg0)
+}
+
+// BuildIpsFromFarmsForNamespace indicates an expected call of BuildIpsFromFarmsForNamespace
+func (mr *MockKeepalivedInterfaceMockRecorder) BuildIpsFromFarmsForNamespace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildIpsFromFarmsForNamespace", reflect.TypeOf((*MockKeepalivedInterface)(nil).BuildIpsFromFarmsForNamespace), arg0)
 }
 
 // LoadInitData mocks base method
@@ -73,20 +113,6 @@ func (m *MockKeepalivedInterface) LoadInitData(arg0 *proto.InitAgentData) error 
 func (mr *MockKeepalivedInterfaceMockRecorder) LoadInitData(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadInitData", reflect.TypeOf((*MockKeepalivedInterface)(nil).LoadInitData), arg0)
-}
-
-// reloadEngine mocks base method
-func (m *MockKeepalivedInterface) reloadEngine() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "reloadEngine")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// reloadEngine indicates an expected call of reloadEngine
-func (mr *MockKeepalivedInterfaceMockRecorder) reloadEngine() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "reloadEngine", reflect.TypeOf((*MockKeepalivedInterface)(nil).reloadEngine))
 }
 
 // StartEngine mocks base method

@@ -61,5 +61,16 @@ required = [
   version = "v0.1.9"
 
 [[constraint]]
+  name="sigs.k8s.io/controller-tools"
+  version="v0.1.8"
+
+[[constraint]]
   name = "github.com/golang/mock"
   version = "v1.2.0"
+[[constraint]]
+  name = "sigs.k8s.io/testing_frameworks"
+  version = "0.1.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/docker/spdystream"

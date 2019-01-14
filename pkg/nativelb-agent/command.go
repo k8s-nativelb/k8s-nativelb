@@ -75,7 +75,6 @@ func (n *NativelbAgent) GetAgentStatus(ctx context.Context, cmd *Command) (*Agen
 
 func (n *NativelbAgent) InitAgent(ctx context.Context, data *InitAgentData) (*InitAgentResult, error) {
 	log.Log.Infof("InitAgent grpc call with initData: %v", *data)
-
 	err := n.LoadInitToEngines(data)
 	if err != nil {
 		return nil, err
@@ -83,10 +82,10 @@ func (n *NativelbAgent) InitAgent(ctx context.Context, data *InitAgentData) (*In
 
 	n.agentStatus.SyncVersion = data.SyncVersion
 	n.agentStatus.Status = AgentSyncedStatus
-
-	//TODO: remove this after the agent start a real nginx process
 	n.agentStatus.KeepAlivedPid = n.keepalivedController.GetPid()
 	n.agentStatus.LBPid = n.loadBalancerController.GetPid()
+
+	//TODO: remove this after the agent start a real nginx process
 	n.agentStatus.Uptime = &duration.Duration{Seconds: 1}
 
 	return &InitAgentResult{Agent: n.agent, AgentStatus: n.agentStatus}, nil

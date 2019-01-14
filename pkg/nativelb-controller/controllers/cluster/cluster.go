@@ -18,6 +18,7 @@ package cluster_controller
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/log"
@@ -102,7 +103,6 @@ func (c *ClusterController) GetClusterFromService(service *corev1.Service) (*v1.
 			}
 			return nil, err
 		}
-
 	} else {
 		labelSelector := labels.Set{}
 		labelSelector[v1.NativeLBDefaultLabel] = "true"
@@ -227,4 +227,40 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 		delete(farm.Spec.Servers, deletedServerName)
 	}
 	return nil
+}
+
+func (c *ClusterController) KeepAliveAgents() {
+	c.GetManager().GetCache().WaitForCacheSync(c.clusterConnection.StopChan)
+	for {
+		select {
+		case <-c.clusterConnection.StopChan:
+			return
+		case <-time.Tick(v1.KeepaliveTime * time.Second):
+			c.keepalive()
+		}
+	}
+}
+
+func (c *ClusterController) keepalive() {
+	agents, err := c.Agent().List(&client.ListOptions{})
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get agent list for keepalive check")
+	}
+
+	numOfAgents := len(agents.Items)
+	for idx, agent := range agents.Items {
+		cluster, err := c.Cluster().Get(agent.Spec.Cluster)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get cluster %s object for agent %s", agent.Spec.Cluster, agent.Name)
+			continue
+		}
+		c.clusterConnection.GetAgentStatus(&agent, idx+1, numOfAgents)
+
+		if cluster.Status.Agents == nil {
+			cluster.Status.Agents = make(map[string]*v1.Agent)
+		}
+
+		cluster.Status.Agents[agent.Name] = &agent
+		c.updateLabels(cluster, v1.ClusterConnectionStatusSuccess)
+	}
 }

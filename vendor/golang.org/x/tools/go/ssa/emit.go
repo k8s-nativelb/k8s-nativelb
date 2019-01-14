@@ -10,7 +10,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"go/types"
+
+	"golang.org/x/tools/go/types"
 )
 
 // emitNew emits to f a new (heap Alloc) instruction allocating an
@@ -147,7 +148,7 @@ func emitCompare(f *Function, op token.Token, x, y Value, pos token.Pos) Value {
 //
 func isValuePreserving(ut_src, ut_dst types.Type) bool {
 	// Identical underlying types?
-	if structTypesIdentical(ut_dst, ut_src) {
+	if types.Identical(ut_dst, ut_src) {
 		return true
 	}
 
@@ -207,7 +208,7 @@ func emitConv(f *Function, val Value, typ types.Type) Value {
 			val = emitConv(f, val, DefaultType(ut_src))
 		}
 
-		f.Pkg.Prog.needMethodsOf(val.Type())
+		f.Pkg.needMethodsOf(val.Type())
 		mi := &MakeInterface{X: val}
 		mi.setType(typ)
 		return f.emit(mi)
@@ -245,11 +246,10 @@ func emitConv(f *Function, val Value, typ types.Type) Value {
 // emitStore emits to f an instruction to store value val at location
 // addr, applying implicit conversions as required by assignability rules.
 //
-func emitStore(f *Function, addr, val Value, pos token.Pos) *Store {
+func emitStore(f *Function, addr, val Value) *Store {
 	s := &Store{
 		Addr: addr,
 		Val:  emitConv(f, val, deref(addr.Type())),
-		pos:  pos,
 	}
 	f.emit(s)
 	return s
@@ -427,6 +427,12 @@ func zeroValue(f *Function, t types.Type) Value {
 	default:
 		return zeroConst(t)
 	}
+}
+
+// emitMemClear emits to f code to zero the value pointed to by ptr.
+func emitMemClear(f *Function, ptr Value) {
+	// TODO(adonovan): define and use a 'memclr' intrinsic for aggregate types.
+	emitStore(f, ptr, zeroValue(f, deref(ptr.Type())))
 }
 
 // createRecoverBlock emits to f a block of code to return after a

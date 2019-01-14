@@ -9,10 +9,11 @@ package ssa
 
 import (
 	"fmt"
-	"go/types"
 	"io"
 	"os"
 	"strings"
+
+	"golang.org/x/tools/go/types"
 )
 
 type sanity struct {
@@ -351,9 +352,7 @@ func (s *sanity) checkBlock(b *BasicBlock, index int) {
 			// Check that Operands that are also Instructions belong to same function.
 			// TODO(adonovan): also check their block dominates block b.
 			if val, ok := val.(Instruction); ok {
-				if val.Block() == nil {
-					s.errorf("operand %d of %s is an instruction (%s) that belongs to no block", i, instr, val)
-				} else if val.Parent() != s.fn {
+				if val.Parent() != s.fn {
 					s.errorf("operand %d of %s is an instruction (%s) from function %s", i, instr, val, val.Parent())
 				}
 			}
@@ -408,8 +407,8 @@ func (s *sanity) checkFunction(fn *Function) bool {
 		s.errorf("nil Prog")
 	}
 
-	fn.String()            // must not crash
-	fn.RelString(fn.pkg()) // must not crash
+	fn.String()               // must not crash
+	fn.RelString(fn.pkgobj()) // must not crash
 
 	// All functions have a package, except delegates (which are
 	// shared across packages, or duplicated as weak symbols in a
@@ -485,7 +484,7 @@ func (s *sanity) checkFunction(fn *Function) bool {
 // It does not require that the package is built.
 // Unlike sanityCheck (for functions), it just panics at the first error.
 func sanityCheckPackage(pkg *Package) {
-	if pkg.Pkg == nil {
+	if pkg.Object == nil {
 		panic(fmt.Sprintf("Package %s has no Object", pkg))
 	}
 	pkg.String() // must not crash
@@ -493,7 +492,7 @@ func sanityCheckPackage(pkg *Package) {
 	for name, mem := range pkg.Members {
 		if name != mem.Name() {
 			panic(fmt.Sprintf("%s: %T.Name() = %s, want %s",
-				pkg.Pkg.Path(), mem, mem.Name(), name))
+				pkg.Object.Path(), mem, mem.Name(), name))
 		}
 		obj := mem.Object()
 		if obj == nil {
@@ -506,13 +505,8 @@ func sanityCheckPackage(pkg *Package) {
 			continue // not all members have typechecker objects
 		}
 		if obj.Name() != name {
-			if obj.Name() == "init" && strings.HasPrefix(mem.Name(), "init#") {
-				// Ok.  The name of a declared init function varies between
-				// its types.Func ("init") and its ssa.Function ("init#%d").
-			} else {
-				panic(fmt.Sprintf("%s: %T.Object().Name() = %s, want %s",
-					pkg.Pkg.Path(), mem, obj.Name(), name))
-			}
+			panic(fmt.Sprintf("%s: %T.Object().Name() = %s, want %s",
+				pkg.Object.Path(), mem, obj.Name(), name))
 		}
 		if obj.Pos() != mem.Pos() {
 			panic(fmt.Sprintf("%s Pos=%d obj.Pos=%d", mem, mem.Pos(), obj.Pos()))

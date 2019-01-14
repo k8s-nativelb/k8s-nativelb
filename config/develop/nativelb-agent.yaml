@@ -5,15 +5,15 @@ metadata:
   name: nativelb-agent
   namespace: nativelb
   labels:
-    nativelb.io/cluster: cluster-sample-internal
+    k8s.nativelb.io/cluster: cluster-sample-internal
 spec:
   selector:
     matchLabels:
-      nativelb.io/daemonset: nativelb-agent
+      k8s.nativelb.io/daemonset: nativelb-agent
   template:
     metadata:
       labels:
-        nativelb.io/daemonset: nativelb-agent
+        k8s.nativelb.io/daemonset: nativelb-agent
         daemonset.nativelb.io/port: "8000"
     spec:
       hostNetwork: true

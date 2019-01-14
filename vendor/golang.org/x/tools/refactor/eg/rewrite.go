@@ -1,7 +1,3 @@
-// Copyright 2014 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package eg
 
 // This file defines the AST rewriting pass.
@@ -12,14 +8,14 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"go/types"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
-	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/astutil"
+	"golang.org/x/tools/go/types"
 )
 
 // Transform applies the transformation to the specified parsed file,
@@ -35,7 +31,7 @@ import (
 func (tr *Transformer) Transform(info *types.Info, pkg *types.Package, file *ast.File) int {
 	if !tr.seenInfos[info] {
 		tr.seenInfos[info] = true
-		mergeTypeInfo(tr.info, info)
+		mergeTypeInfo(&tr.info.Info, info)
 	}
 	tr.currentPkg = pkg
 	tr.nsubsts = 0
@@ -151,6 +147,7 @@ var (
 	selectorExprType = reflect.TypeOf((*ast.SelectorExpr)(nil))
 	objectPtrType    = reflect.TypeOf((*ast.Object)(nil))
 	positionType     = reflect.TypeOf(token.NoPos)
+	callExprType     = reflect.TypeOf((*ast.CallExpr)(nil))
 	scopePtrType     = reflect.TypeOf((*ast.Scope)(nil))
 )
 
@@ -237,7 +234,7 @@ func (tr *Transformer) subst(env map[string]ast.Expr, pattern, pos reflect.Value
 	// denoted by unqualified identifiers.
 	//
 	if tr.importedObjs != nil && pattern.Type() == selectorExprType {
-		obj := isRef(pattern.Interface().(*ast.SelectorExpr), tr.info)
+		obj := isRef(pattern.Interface().(*ast.SelectorExpr), &tr.info)
 		if obj != nil {
 			if sel, ok := tr.importedObjs[obj]; ok {
 				var id ast.Expr
@@ -291,7 +288,7 @@ func (tr *Transformer) subst(env map[string]ast.Expr, pattern, pos reflect.Value
 		// All ast.Node implementations are *structs,
 		// so this case catches them all.
 		if e := rvToExpr(v); e != nil {
-			updateTypeInfo(tr.info, e, p.Interface().(ast.Expr))
+			updateTypeInfo(&tr.info.Info, e, p.Interface().(ast.Expr))
 		}
 		return v
 

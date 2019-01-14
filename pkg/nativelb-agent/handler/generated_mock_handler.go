@@ -33,10 +33,10 @@ func (m *MockHandlerInterface) EXPECT() *MockHandlerInterfaceMockRecorder {
 }
 
 // GetPid mocks base method
-func (m *MockHandlerInterface) GetPid(arg0 string) (int32, error) {
+func (m *MockHandlerInterface) GetPid(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPid", arg0)
-	ret0, _ := ret[0].(int32)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -60,6 +60,21 @@ func (m *MockHandlerInterface) CheckHaproxyConfig() (string, error) {
 func (mr *MockHandlerInterfaceMockRecorder) CheckHaproxyConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckHaproxyConfig", reflect.TypeOf((*MockHandlerInterface)(nil).CheckHaproxyConfig))
+}
+
+// CheckNginxConfig mocks base method
+func (m *MockHandlerInterface) CheckNginxConfig() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckNginxConfig")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckNginxConfig indicates an expected call of CheckNginxConfig
+func (mr *MockHandlerInterfaceMockRecorder) CheckNginxConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckNginxConfig", reflect.TypeOf((*MockHandlerInterface)(nil).CheckNginxConfig))
 }
 
 // CheckKeepalivedConfig mocks base method
@@ -92,6 +107,21 @@ func (mr *MockHandlerInterfaceMockRecorder) StartHaproxy() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartHaproxy", reflect.TypeOf((*MockHandlerInterface)(nil).StartHaproxy))
 }
 
+// StartNginx mocks base method
+func (m *MockHandlerInterface) StartNginx() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartNginx")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StartNginx indicates an expected call of StartNginx
+func (mr *MockHandlerInterfaceMockRecorder) StartNginx() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartNginx", reflect.TypeOf((*MockHandlerInterface)(nil).StartNginx))
+}
+
 // StartKeepalived mocks base method
 func (m *MockHandlerInterface) StartKeepalived() (string, error) {
 	m.ctrl.T.Helper()
@@ -122,6 +152,21 @@ func (mr *MockHandlerInterfaceMockRecorder) ReloadHaproxy(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadHaproxy", reflect.TypeOf((*MockHandlerInterface)(nil).ReloadHaproxy), arg0)
 }
 
+// ReloadNginx mocks base method
+func (m *MockHandlerInterface) ReloadNginx(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReloadNginx", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReloadNginx indicates an expected call of ReloadNginx
+func (mr *MockHandlerInterfaceMockRecorder) ReloadNginx(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadNginx", reflect.TypeOf((*MockHandlerInterface)(nil).ReloadNginx), arg0)
+}
+
 // ReloadKeepalived mocks base method
 func (m *MockHandlerInterface) ReloadKeepalived(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -149,6 +194,20 @@ func (m *MockHandlerInterface) StopHaproxy(arg0 string) error {
 func (mr *MockHandlerInterfaceMockRecorder) StopHaproxy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopHaproxy", reflect.TypeOf((*MockHandlerInterface)(nil).StopHaproxy), arg0)
+}
+
+// StopNginx mocks base method
+func (m *MockHandlerInterface) StopNginx(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StopNginx", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StopNginx indicates an expected call of StopNginx
+func (mr *MockHandlerInterfaceMockRecorder) StopNginx(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopNginx", reflect.TypeOf((*MockHandlerInterface)(nil).StopNginx), arg0)
 }
 
 // StopKeepalived mocks base method

@@ -7,7 +7,7 @@
 //
 // All I/O is done via the build.Context file system interface, which must
 // be concurrency-safe.
-package buildutil // import "golang.org/x/tools/go/buildutil"
+package buildutil
 
 import (
 	"go/build"
@@ -18,10 +18,9 @@ import (
 	"sync"
 )
 
-// AllPackages returns the package path of each Go package in any source
+// AllPackages returns the import path of each Go package in any source
 // directory of the specified build context (e.g. $GOROOT or an element
 // of $GOPATH).  Errors are ignored.  The results are sorted.
-// All package paths are canonical, and thus may contain "/vendor/".
 //
 // The result may include import paths for directories that contain no
 // *.go files, such as "archive" (in $GOROOT/src).
@@ -31,57 +30,44 @@ import (
 //
 func AllPackages(ctxt *build.Context) []string {
 	var list []string
+	var mu sync.Mutex
 	ForEachPackage(ctxt, func(pkg string, _ error) {
+		mu.Lock()
 		list = append(list, pkg)
+		mu.Unlock()
 	})
 	sort.Strings(list)
 	return list
 }
 
-// ForEachPackage calls the found function with the package path of
+// ForEachPackage calls the found function with the import path of
 // each Go package it finds in any source directory of the specified
 // build context (e.g. $GOROOT or an element of $GOPATH).
-// All package paths are canonical, and thus may contain "/vendor/".
 //
 // If the package directory exists but could not be read, the second
 // argument to the found function provides the error.
 //
-// All I/O is done via the build.Context file system interface,
-// which must be concurrency-safe.
+// The found function and the build.Context file system interface
+// accessors must be concurrency safe.
 //
 func ForEachPackage(ctxt *build.Context, found func(importPath string, err error)) {
-	ch := make(chan item)
+	// We use a counting semaphore to limit
+	// the number of parallel calls to ReadDir.
+	sema := make(chan bool, 20)
 
 	var wg sync.WaitGroup
 	for _, root := range ctxt.SrcDirs() {
 		root := root
 		wg.Add(1)
 		go func() {
-			allPackages(ctxt, root, ch)
+			allPackages(ctxt, sema, root, found)
 			wg.Done()
 		}()
 	}
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
-
-	// All calls to found occur in the caller's goroutine.
-	for i := range ch {
-		found(i.importPath, i.err)
-	}
+	wg.Wait()
 }
 
-type item struct {
-	importPath string
-	err        error // (optional)
-}
-
-// We use a process-wide counting semaphore to limit
-// the number of parallel calls to ReadDir.
-var ioLimit = make(chan bool, 20)
-
-func allPackages(ctxt *build.Context, root string, ch chan<- item) {
+func allPackages(ctxt *build.Context, sema chan bool, root string, found func(string, error)) {
 	root = filepath.Clean(root) + string(os.PathSeparator)
 
 	var wg sync.WaitGroup
@@ -102,11 +88,11 @@ func allPackages(ctxt *build.Context, root string, ch chan<- item) {
 			return
 		}
 
-		ioLimit <- true
+		sema <- true
 		files, err := ReadDir(ctxt, dir)
-		<-ioLimit
+		<-sema
 		if pkg != "" || err != nil {
-			ch <- item{pkg, err}
+			found(pkg, err)
 		}
 		for _, fi := range files {
 			fi := fi
@@ -122,77 +108,4 @@ func allPackages(ctxt *build.Context, root string, ch chan<- item) {
 
 	walkDir(root)
 	wg.Wait()
-}
-
-// ExpandPatterns returns the set of packages matched by patterns,
-// which may have the following forms:
-//
-//		golang.org/x/tools/cmd/guru     # a single package
-//		golang.org/x/tools/...          # all packages beneath dir
-//		...                             # the entire workspace.
-//
-// Order is significant: a pattern preceded by '-' removes matching
-// packages from the set.  For example, these patterns match all encoding
-// packages except encoding/xml:
-//
-// 	encoding/... -encoding/xml
-//
-// A trailing slash in a pattern is ignored.  (Path components of Go
-// package names are separated by slash, not the platform's path separator.)
-//
-func ExpandPatterns(ctxt *build.Context, patterns []string) map[string]bool {
-	// TODO(adonovan): support other features of 'go list':
-	// - "std"/"cmd"/"all" meta-packages
-	// - "..." not at the end of a pattern
-	// - relative patterns using "./" or "../" prefix
-
-	pkgs := make(map[string]bool)
-	doPkg := func(pkg string, neg bool) {
-		if neg {
-			delete(pkgs, pkg)
-		} else {
-			pkgs[pkg] = true
-		}
-	}
-
-	// Scan entire workspace if wildcards are present.
-	// TODO(adonovan): opt: scan only the necessary subtrees of the workspace.
-	var all []string
-	for _, arg := range patterns {
-		if strings.HasSuffix(arg, "...") {
-			all = AllPackages(ctxt)
-			break
-		}
-	}
-
-	for _, arg := range patterns {
-		if arg == "" {
-			continue
-		}
-
-		neg := arg[0] == '-'
-		if neg {
-			arg = arg[1:]
-		}
-
-		if arg == "..." {
-			// ... matches all packages
-			for _, pkg := range all {
-				doPkg(pkg, neg)
-			}
-		} else if dir := strings.TrimSuffix(arg, "/..."); dir != arg {
-			// dir/... matches all packages beneath dir
-			for _, pkg := range all {
-				if strings.HasPrefix(pkg, dir) &&
-					(len(pkg) == len(dir) || pkg[len(dir)] == '/') {
-					doPkg(pkg, neg)
-				}
-			}
-		} else {
-			// single package
-			doPkg(strings.TrimSuffix(arg, "/"), neg)
-		}
-	}
-
-	return pkgs
 }

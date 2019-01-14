@@ -7,7 +7,7 @@ In the absence of any formal way to specify interfaces in JavaScript,
 here's a skeleton implementation of a playground transport.
 
         function Transport() {
-                // Set up any transport state (eg, make a websocket connection).
+                // Set up any transport state (eg, make a websocket connnection).
                 return {
                         Run: function(body, output, options) {
                                 // Compile and run the program 'body' with 'options'.
@@ -49,7 +49,7 @@ function HTTPTransport() {
 		var timeout;
 		output({Kind: 'start'});
 		function next() {
-			if (!events || events.length === 0) {
+			if (events.length === 0) {
 				output({Kind: 'end'});
 				return;
 			}
@@ -169,9 +169,8 @@ function PlaygroundOutput(el) {
 			cl = write.Kind;
 
 		var m = write.Body;
-		if (write.Kind == 'end') {
+		if (write.Kind == 'end') 
 			m = '\nProgram exited' + (m?(': '+m):'.');
-		}
 
 		if (m.indexOf('IMAGE:') === 0) {
 			// TODO(adg): buffer all writes before creating image
@@ -236,12 +235,11 @@ function PlaygroundOutput(el) {
   //  toysEl - toys select element (optional)
   //  enableHistory - enable using HTML5 history API (optional)
   //  transport - playground transport to use (default is HTTPTransport)
-  //  enableShortcuts - whether to enable shortcuts (Ctrl+S/Cmd+S to save) (default is false)
   function playground(opts) {
     var code = $(opts.codeEl);
     var transport = opts['transport'] || new HTTPTransport();
     var running;
-
+  
     // autoindent helpers.
     function insertTabs(n) {
       // find the selection start and end
@@ -275,26 +273,8 @@ function PlaygroundOutput(el) {
         insertTabs(tabs);
       }, 1);
     }
-
-    // NOTE(cbro): e is a jQuery event, not a DOM event.
-    function handleSaveShortcut(e) {
-      if (e.isDefaultPrevented()) return false;
-      if (!e.metaKey && !e.ctrlKey) return false;
-      if (e.key != "S" && e.key != "s") return false;
-
-      e.preventDefault();
-
-      // Share and save
-      share(function(url) {
-        window.location.href = url + ".go?download=true";
-      });
-
-      return true;
-    }
-
+  
     function keyHandler(e) {
-      if (opts.enableShortcuts && handleSaveShortcut(e)) return;
-
       if (e.keyCode == 9 && !e.ctrlKey) { // tab (but not ctrl-tab)
         insertTabs(1);
         e.preventDefault();
@@ -317,7 +297,7 @@ function PlaygroundOutput(el) {
     code.unbind('keydown').bind('keydown', keyHandler);
     var outdiv = $(opts.outputEl).empty();
     var output = $('<pre/>').appendTo(outdiv);
-
+  
     function body() {
       return $(opts.codeEl).val();
     }
@@ -327,7 +307,7 @@ function PlaygroundOutput(el) {
     function origin(href) {
       return (""+href).split("/").slice(0, 3).join("/");
     }
-
+  
     var pushedEmpty = (window.location.pathname == "/");
     function inputChanged() {
       if (pushedEmpty) {
@@ -370,7 +350,7 @@ function PlaygroundOutput(el) {
 
     function fmt() {
       loading();
-      var data = {"body": body()};
+      var data = {"body": body()}; 
       if ($(opts.fmtImportEl).is(":checked")) {
         data["imports"] = "true";
       }
@@ -389,63 +369,48 @@ function PlaygroundOutput(el) {
       });
     }
 
-    var shareURL; // jQuery element to show the shared URL.
-    var sharing = false; // true if there is a pending request.
-    var shareCallbacks = [];
-    function share(opt_callback) {
-      if (opt_callback) shareCallbacks.push(opt_callback);
-
-      if (sharing) return;
-      sharing = true;
-
-      var sharingData = body();
-      $.ajax("/share", {
-        processData: false,
-        data: sharingData,
-        type: "POST",
-        contentType: "text/plain; charset=utf-8",
-        complete: function(xhr) {
-          sharing = false;
-          if (xhr.status != 200) {
-            alert("Server error; try again.");
-            return;
-          }
-          if (opts.shareRedirect) {
-            window.location = opts.shareRedirect + xhr.responseText;
-          }
-          var path = "/p/" + xhr.responseText;
-          var url = origin(window.location) + path;
-
-          for (var i = 0; i < shareCallbacks.length; i++) {
-            shareCallbacks[i](url);
-          }
-          shareCallbacks = [];
-
-          if (shareURL) {
-            shareURL.show().val(url).focus().select();
-
-            if (rewriteHistory) {
-              var historyData = {"code": sharingData};
-              window.history.pushState(historyData, "", path);
-              pushedEmpty = false;
-            }
-          }
-        }
-      });
-    }
-
     $(opts.runEl).click(run);
     $(opts.fmtEl).click(fmt);
 
     if (opts.shareEl !== null && (opts.shareURLEl !== null || opts.shareRedirect !== null)) {
+      var shareURL;
       if (opts.shareURLEl) {
         shareURL = $(opts.shareURLEl).hide();
       }
+      var sharing = false;
       $(opts.shareEl).click(function() {
-        share();
+        if (sharing) return;
+        sharing = true;
+        var sharingData = body();
+        $.ajax("/share", {
+          processData: false,
+          data: sharingData,
+          type: "POST",
+          complete: function(xhr) {
+            sharing = false;
+            if (xhr.status != 200) {
+              alert("Server error; try again.");
+              return;
+            }
+            if (opts.shareRedirect) {
+              window.location = opts.shareRedirect + xhr.responseText;
+            }
+            if (shareURL) {
+              var path = "/p/" + xhr.responseText;
+              var url = origin(window.location) + path;
+              shareURL.show().val(url).focus().select();
+  
+              if (rewriteHistory) {
+                var historyData = {"code": sharingData};
+                window.history.pushState(historyData, "", path);
+                pushedEmpty = false;
+              }
+            }
+          }
+        });
       });
     }
-
+  
     if (opts.toysEl !== null) {
       $(opts.toysEl).bind('change', function() {
         var toy = $(this).val();

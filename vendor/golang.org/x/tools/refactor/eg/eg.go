@@ -1,20 +1,17 @@
-// Copyright 2014 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 // Package eg implements the example-based refactoring tool whose
 // command-line is defined in golang.org/x/tools/cmd/eg.
-package eg // import "golang.org/x/tools/refactor/eg"
+package eg
 
 import (
 	"bytes"
 	"fmt"
 	"go/ast"
-	"go/format"
 	"go/printer"
 	"go/token"
-	"go/types"
 	"os"
+
+	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/types"
 )
 
 const Help = `
@@ -86,9 +83,6 @@ a wildcard may have any integer type, for example.
 It is not possible to replace an expression by one of a different
 type, even in contexts where this is legal, such as x in fmt.Print(x).
 
-The struct literals T{x} and T{K: x} cannot both be matched by a single
-template.
-
 
 SAFETY
 
@@ -133,13 +127,19 @@ changing the arguments as needed; (3) change the declaration of f to
 match f'; (4) use eg to rename f' to f in all calls; (5) delete f'.
 `
 
+// TODO(adonovan): allow the tool to be invoked using relative package
+// directory names (./foo).  Requires changes to go/loader.
+
 // TODO(adonovan): expand upon the above documentation as an HTML page.
+
+// TODO(adonovan): eliminate dependency on loader.PackageInfo.
+// Move its TypeOf method into go/types.
 
 // A Transformer represents a single example-based transformation.
 type Transformer struct {
 	fset           *token.FileSet
 	verbose        bool
-	info           *types.Info // combined type info for template/input/output ASTs
+	info           loader.PackageInfo // combined type info for template/input/output ASTs
 	seenInfos      map[*types.Info]bool
 	wildcards      map[*types.Var]bool                // set of parameters in func before()
 	env            map[string]ast.Expr                // maps parameter name to wildcard binding
@@ -153,17 +153,16 @@ type Transformer struct {
 }
 
 // NewTransformer returns a transformer based on the specified template,
-// a single-file package containing "before" and "after" functions as
-// described in the package documentation.
-// tmplInfo is the type information for tmplFile.
+// a package containing "before" and "after" functions as described
+// in the package documentation.
 //
-func NewTransformer(fset *token.FileSet, tmplPkg *types.Package, tmplFile *ast.File, tmplInfo *types.Info, verbose bool) (*Transformer, error) {
+func NewTransformer(fset *token.FileSet, template *loader.PackageInfo, verbose bool) (*Transformer, error) {
 	// Check the template.
-	beforeSig := funcSig(tmplPkg, "before")
+	beforeSig := funcSig(template.Pkg, "before")
 	if beforeSig == nil {
 		return nil, fmt.Errorf("no 'before' func found in template")
 	}
-	afterSig := funcSig(tmplPkg, "after")
+	afterSig := funcSig(template.Pkg, "after")
 	if afterSig == nil {
 		return nil, fmt.Errorf("no 'after' func found in template")
 	}
@@ -174,16 +173,18 @@ func NewTransformer(fset *token.FileSet, tmplPkg *types.Package, tmplFile *ast.F
 			beforeSig, afterSig)
 	}
 
-	for _, imp := range tmplFile.Imports {
+	templateFile := template.Files[0]
+	for _, imp := range templateFile.Imports {
 		if imp.Name != nil && imp.Name.Name == "." {
 			// Dot imports are currently forbidden.  We
 			// make the simplifying assumption that all
 			// imports are regular, without local renames.
+			//TODO document
 			return nil, fmt.Errorf("dot-import (of %s) in template", imp.Path.Value)
 		}
 	}
 	var beforeDecl, afterDecl *ast.FuncDecl
-	for _, decl := range tmplFile.Decls {
+	for _, decl := range templateFile.Decls {
 		if decl, ok := decl.(*ast.FuncDecl); ok {
 			switch decl.Name.Name {
 			case "before":
@@ -223,8 +224,8 @@ func NewTransformer(fset *token.FileSet, tmplPkg *types.Package, tmplFile *ast.F
 	// of the replacement.  (Consider the rule that array literal keys
 	// must be unique.)  So we cannot hope to prove the safety of a
 	// transformation in general.
-	Tb := tmplInfo.TypeOf(before)
-	Ta := tmplInfo.TypeOf(after)
+	Tb := template.TypeOf(before)
+	Ta := template.TypeOf(after)
 	if types.AssignableTo(Tb, Ta) {
 		// safe: replacement is assignable to pattern.
 	} else if tuple, ok := Tb.(*types.Tuple); ok && tuple.Len() == 0 {
@@ -248,16 +249,19 @@ func NewTransformer(fset *token.FileSet, tmplPkg *types.Package, tmplFile *ast.F
 	// type info for the synthesized ASTs too.  This saves us
 	// having to book-keep where each ast.Node originated as we
 	// construct the resulting hybrid AST.
-	tr.info = &types.Info{
+	//
+	// TODO(adonovan): move type utility methods of PackageInfo to
+	// types.Info, or at least into go/types.typeutil.
+	tr.info.Info = types.Info{
 		Types:      make(map[ast.Expr]types.TypeAndValue),
 		Defs:       make(map[*ast.Ident]types.Object),
 		Uses:       make(map[*ast.Ident]types.Object),
 		Selections: make(map[*ast.SelectorExpr]*types.Selection),
 	}
-	mergeTypeInfo(tr.info, tmplInfo)
+	mergeTypeInfo(&tr.info.Info, &template.Info)
 
 	// Compute set of imported objects required by after().
-	// TODO(adonovan): reject dot-imports in pattern
+	// TODO reject dot-imports in pattern
 	ast.Inspect(after, func(n ast.Node) bool {
 		if n, ok := n.(*ast.SelectorExpr); ok {
 			if _, ok := tr.info.Selections[n]; !ok {
@@ -284,7 +288,7 @@ func WriteAST(fset *token.FileSet, filename string, f *ast.File) (err error) {
 			err = err2 // prefer earlier error
 		}
 	}()
-	return format.Node(fh, fset, f)
+	return printer.Fprint(fh, fset, f)
 }
 
 // -- utilities --------------------------------------------------------

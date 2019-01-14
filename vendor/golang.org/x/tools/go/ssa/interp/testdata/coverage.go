@@ -91,8 +91,8 @@ func init() {
 	}
 
 	pa1 := &[2]string{"foo", "bar"}
-	pa2 := pa1 // creates an alias
-	pa2[0] = "wiz"
+	pa2 := pa1        // creates an alias
+	(*pa2)[0] = "wiz" // * required to workaround typechecker bug
 	if x := fmt.Sprint(*pa1, *pa2); x != "[wiz bar] [wiz bar]" {
 		panic(x)
 	}
@@ -435,7 +435,7 @@ func init() {
 func init() {
 	// Regression test for SSA renaming bug.
 	var ints []int
-	for range "foo" {
+	for _ = range "foo" {
 		var x int
 		x++
 		ints = append(ints, x)
@@ -478,28 +478,7 @@ func init() {
 	}
 }
 
-var one = 1 // not a constant
-
-// Test makeslice.
-func init() {
-	check := func(s []string, wantLen, wantCap int) {
-		if len(s) != wantLen {
-			panic(len(s))
-		}
-		if cap(s) != wantCap {
-			panic(cap(s))
-		}
-	}
-	//                                       SSA form:
-	check(make([]string, 10), 10, 10)     // new([10]string)[:10]
-	check(make([]string, one), 1, 1)      // make([]string, one, one)
-	check(make([]string, 0, 10), 0, 10)   // new([10]string)[:0]
-	check(make([]string, 0, one), 0, 1)   // make([]string, 0, one)
-	check(make([]string, one, 10), 1, 10) // new([10]string)[:one]
-	check(make([]string, one, one), 1, 1) // make([]string, one, one)
-}
-
-// Test that a nice error is issued by indirection wrappers.
+// Test that a nice error is issue by indirection wrappers.
 func init() {
 	var ptr *T
 	var i I = ptr
@@ -514,21 +493,4 @@ func init() {
 	}()
 	i.f()
 	panic("unreachable")
-}
-
-// Regression test for a subtle bug in which copying values would causes
-// subcomponents of aggregate variables to change address, breaking
-// aliases.
-func init() {
-	type T struct{ f int }
-	var x T
-	p := &x.f
-	x = T{}
-	*p = 1
-	if x.f != 1 {
-		panic("lost store")
-	}
-	if p != &x.f {
-		panic("unstable address")
-	}
 }

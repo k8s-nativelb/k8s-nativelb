@@ -431,7 +431,7 @@ Structs
   Field offsets are logical field offsets (plus one for the identity
   node), so the sizes of the fields can be ignored by the analysis.
 
-  (The identity node is non-traditional but enables the distinction
+  (The identity node is non-traditional but enables the distiction
   described above, which is valuable for code comprehension tools.
   Typical pointer analyses for C, whose purpose is compiler
   optimization, must soundly model unsafe.Pointer (void*) conversions,
@@ -607,4 +607,4 @@ ACM, New York, NY, USA, 47-56. DOI=10.1145/349299.349310
 http://doi.acm.org/10.1145/349299.349310
 
 */
-package pointer // import "golang.org/x/tools/go/pointer"
+package pointer

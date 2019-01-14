@@ -5,7 +5,7 @@
 // Adapted from encoding/xml/read_test.go.
 
 // Package atom defines XML data structures for an Atom feed.
-package atom // import "golang.org/x/tools/blog/atom"
+package atom
 
 import (
 	"encoding/xml"
@@ -34,12 +34,8 @@ type Entry struct {
 }
 
 type Link struct {
-	Rel      string `xml:"rel,attr,omitempty"`
-	Href     string `xml:"href,attr"`
-	Type     string `xml:"type,attr,omitempty"`
-	HrefLang string `xml:"hreflang,attr,omitempty"`
-	Title    string `xml:"title,attr,omitempty"`
-	Length   uint   `xml:"length,attr,omitempty"`
+	Rel  string `xml:"rel,attr"`
+	Href string `xml:"href,attr"`
 }
 
 type Person struct {

@@ -16,11 +16,14 @@ limitations under the License.
 package nativelb_controller
 
 import (
+	"github.com/k8s-nativelb/pkg/apis"
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/daemonset"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/grpc-manager"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -51,7 +54,26 @@ type NativeLBManager struct {
 }
 
 func NewNativeLBManager() *NativeLBManager {
-	nativelbCli, err := kubecli.GetNativelbClient()
+	cfg, err := config.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(cfg, manager.Options{})
+	if err != nil {
+		panic(err)
+	}
+
+	log.Log.Infof("Registering Components.")
+
+	// Setup Scheme for all resources
+	schema := mgr.GetScheme()
+	if err := apis.AddToScheme(schema); err != nil {
+		panic(err)
+	}
+
+	nativelbCli, err := kubecli.GetNativelbClient(cfg, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -85,8 +107,6 @@ func (n *NativeLBManager) StartManager() {
 	}
 
 	log.Log.Infof("Starting Native LB Manager")
-
-	go n.nativeLBGrpcManager.StartKeepalive()
 
 	n.nativelbCli.GetManager().Start(n.stopChan)
 }

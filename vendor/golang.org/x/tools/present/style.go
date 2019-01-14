@@ -38,7 +38,7 @@ func Style(s string) template.HTML {
 
 // font returns s with font indicators turned into HTML font tags.
 func font(s string) string {
-	if !strings.ContainsAny(s, "[`_*") {
+	if strings.IndexAny(s, "[`_*") == -1 {
 		return s
 	}
 	words := split(s)
@@ -52,16 +52,16 @@ Word:
 			words[w] = link
 			continue Word
 		}
+		const punctuation = `.,;:()!?—–'"`
 		const marker = "_*`"
 		// Initial punctuation is OK but must be peeled off.
 		first := strings.IndexAny(word, marker)
 		if first == -1 {
 			continue Word
 		}
-		// Opening marker must be at the beginning of the token or else preceded by punctuation.
-		if first != 0 {
-			r, _ := utf8.DecodeLastRuneInString(word[:first])
-			if !unicode.IsPunct(r) {
+		// Is the marker prefixed only by punctuation?
+		for _, r := range word[:first] {
+			if !strings.ContainsRune(punctuation, r) {
 				continue Word
 			}
 		}
@@ -81,18 +81,17 @@ Word:
 			open += "<code>"
 			close = "</code>"
 		}
-		// Closing marker must be at the end of the token or else followed by punctuation.
+		// Terminal punctuation is OK but must be peeled off.
 		last := strings.LastIndex(word, word[:1])
 		if last == 0 {
 			continue Word
 		}
-		if last+1 != len(word) {
-			r, _ := utf8.DecodeRuneInString(word[last+1:])
-			if !unicode.IsPunct(r) {
+		head, tail := word[:last+1], word[last+1:]
+		for _, r := range tail {
+			if !strings.ContainsRune(punctuation, r) {
 				continue Word
 			}
 		}
-		head, tail := word[:last+1], word[last+1:]
 		b.Reset()
 		b.WriteString(open)
 		var wid int

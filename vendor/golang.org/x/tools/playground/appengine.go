@@ -13,10 +13,6 @@ import (
 	"appengine/urlfetch"
 )
 
-func init() {
-	onAppengine = !appengine.IsDevAppServer()
-}
-
 func client(r *http.Request) *http.Client {
 	return urlfetch.Client(appengine.NewContext(r))
 }

@@ -6,8 +6,8 @@ package A2
 // TODO(adonovan): fix: it should also remove "fmt".
 
 import (
-	"errors"
 	myfmt "fmt"
+	"errors"
 )
 
 func example(n int) {

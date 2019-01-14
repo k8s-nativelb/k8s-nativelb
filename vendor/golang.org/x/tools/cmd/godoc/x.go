@@ -17,37 +17,19 @@ import (
 
 const xPrefix = "/x/"
 
-type xRepo struct {
-	URL, VCS string
-}
-
-var xMap = map[string]xRepo{
-	"codereview": {"https://code.google.com/p/go.codereview", "hg"},
-
-	"arch":       {"https://go.googlesource.com/arch", "git"},
-	"benchmarks": {"https://go.googlesource.com/benchmarks", "git"},
-	"blog":       {"https://go.googlesource.com/blog", "git"},
-	"build":      {"https://go.googlesource.com/build", "git"},
-	"crypto":     {"https://go.googlesource.com/crypto", "git"},
-	"debug":      {"https://go.googlesource.com/debug", "git"},
-	"exp":        {"https://go.googlesource.com/exp", "git"},
-	"image":      {"https://go.googlesource.com/image", "git"},
-	"lint":       {"https://go.googlesource.com/lint", "git"},
-	"mobile":     {"https://go.googlesource.com/mobile", "git"},
-	"net":        {"https://go.googlesource.com/net", "git"},
-	"oauth2":     {"https://go.googlesource.com/oauth2", "git"},
-	"perf":       {"https://go.googlesource.com/perf", "git"},
-	"playground": {"https://go.googlesource.com/playground", "git"},
-	"review":     {"https://go.googlesource.com/review", "git"},
-	"sync":       {"https://go.googlesource.com/sync", "git"},
-	"sys":        {"https://go.googlesource.com/sys", "git"},
-	"talks":      {"https://go.googlesource.com/talks", "git"},
-	"term":       {"https://go.googlesource.com/term", "git"},
-	"text":       {"https://go.googlesource.com/text", "git"},
-	"time":       {"https://go.googlesource.com/time", "git"},
-	"tools":      {"https://go.googlesource.com/tools", "git"},
-	"tour":       {"https://go.googlesource.com/tour", "git"},
-	"vgo":        {"https://go.googlesource.com/vgo", "git"},
+var xMap = map[string]string{
+	"benchmarks": "https://code.google.com/p/go.benchmarks",
+	"blog":       "https://code.google.com/p/go.blog",
+	"codereview": "https://code.google.com/p/go.codereview",
+	"crypto":     "https://code.google.com/p/go.crypto",
+	"exp":        "https://code.google.com/p/go.exp",
+	"image":      "https://code.google.com/p/go.image",
+	"mobile":     "https://code.google.com/p/go.mobile",
+	"net":        "https://code.google.com/p/go.net",
+	"sys":        "https://code.google.com/p/go.sys",
+	"talks":      "https://code.google.com/p/go.talks",
+	"text":       "https://code.google.com/p/go.text",
+	"tools":      "https://code.google.com/p/go.tools",
 }
 
 func init() {
@@ -59,18 +41,13 @@ func xHandler(w http.ResponseWriter, r *http.Request) {
 	if i := strings.Index(head, "/"); i != -1 {
 		head, tail = head[:i], head[i:]
 	}
-	if head == "" {
-		http.Redirect(w, r, "https://godoc.org/-/subrepo", http.StatusTemporaryRedirect)
-		return
-	}
 	repo, ok := xMap[head]
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
 	data := struct {
-		Prefix, Head, Tail string
-		Repo               xRepo
+		Prefix, Head, Tail, Repo string
 	}{xPrefix, head, tail, repo}
 	if err := xTemplate.Execute(w, data); err != nil {
 		log.Println("xHandler:", err)
@@ -81,8 +58,7 @@ var xTemplate = template.Must(template.New("x").Parse(`<!DOCTYPE html>
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<meta name="go-import" content="golang.org{{.Prefix}}{{.Head}} {{.Repo.VCS}} {{.Repo.URL}}">
-<meta name="go-source" content="golang.org{{.Prefix}}{{.Head}} https://github.com/golang/{{.Head}}/ https://github.com/golang/{{.Head}}/tree/master{/dir} https://github.com/golang/{{.Head}}/blob/master{/dir}/{file}#L{line}">
+<meta name="go-import" content="golang.org{{.Prefix}}{{.Head}} hg {{.Repo}}">
 <meta http-equiv="refresh" content="0; url=https://godoc.org/golang.org{{.Prefix}}{{.Head}}{{.Tail}}">
 </head>
 <body>

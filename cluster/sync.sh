@@ -33,7 +33,7 @@ REGISTRY=$registry make docker-push
 ./cluster/kubectl.sh delete --ignore-not-found ns nativelb
 
 # Wait until all objects are deleted
-until [[ `./cluster/kubectl.sh get ns | grep nativelb | wc -l` -eq 0 ]]; do
+until [[ `./cluster/kubectl.sh get ns | grep "nativelb " | wc -l` -eq 0 ]]; do
     sleep 5
 done
 
@@ -62,12 +62,12 @@ metadata:
   name: $name
   namespace: nativelb
   labels:
-    nativelb.io/cluster: cluster-sample-internal
+    nativelb.io/cluster: cluster-sample-cluster
 spec:
   hostName: $name
   ipAddress: $ipaddr
   port: 8000
-  cluster: cluster-sample-internal
+  cluster: cluster-sample-cluster
 
 EOF
 done
