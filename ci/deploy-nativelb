@@ -1,11 +1,8 @@
 #!/bin/bash
 
-make docker-build
+REGISTRY=registry:5000 make docker-build
 
-kubectl apply -f config/crds/
-kubectl apply -f config/rbac/
-kubectl create ns nativelb
-kubectl apply -f config/develop/
+kubectl apply -f config/test/k8s-nativelb.yaml
 
 sleep 10
 

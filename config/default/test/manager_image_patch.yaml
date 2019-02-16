@@ -12,6 +12,7 @@ spec:
       containers:
         - name: agent
           image: registry:5000/k8s-nativelb/nativelb-agent:latest
+          imagePullPolicy: IfNotPresent
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -24,6 +25,7 @@ spec:
       containers:
         - image: registry:5000/k8s-nativelb/nativelb-controller:latest
           name: controller
+          imagePullPolicy: IfNotPresent
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,4 +38,4 @@ spec:
       containers:
         - name: agent
           image: registry:5000/k8s-nativelb/nativelb-agent:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
