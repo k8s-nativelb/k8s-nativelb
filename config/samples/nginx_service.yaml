@@ -5,7 +5,7 @@ metadata:
   name: nginx-service
   namespace: nginx1
   annotations:
-    k8s.nativelb.io/cluster: "cluster-sample-cluster"
+    k8s.nativelb.io/cluster: "cluster-internal"
 spec:
   selector:
     app: nginx

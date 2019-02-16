@@ -1,18 +1,11 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: nativelb
----
 apiVersion: k8s.native-lb/v1
 kind: Cluster
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
     k8s.nativelb.io/default: "true"
-  name: cluster-sample-internal
+  name: cluster-internal
   namespace: nativelb
 spec:
   default: true

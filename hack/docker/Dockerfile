@@ -14,6 +14,10 @@ RUN go install github.com/golang/mock/mockgen
 RUN go get golang.org/x/tools/cmd/cover
 RUN go get github.com/mattn/goveralls
 
+RUN go get sigs.k8s.io/kustomize
+WORKDIR /go/src/sigs.k8s.io/kustomize
+RUN git checkout tags/v2.0.1 && go install /go/src/sigs.k8s.io/kustomize
+
 WORKDIR /
 
 COPY install.sh /install.sh

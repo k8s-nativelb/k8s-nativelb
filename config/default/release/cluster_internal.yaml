@@ -11,11 +11,11 @@ kind: Cluster
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
-  #    k8s.nativelb.default: "true"
-  name: cluster-sample-external
+    k8s.nativelb.io/default: "true"
+  name: cluster-internal
   namespace: nativelb
 spec:
-  # Add fields here
-  default: false
-  internal: false
-  subnet: "11.0.0.0/24"
+  default: true
+  internal: true
+  subnet: "10.0.0.0/24"
+

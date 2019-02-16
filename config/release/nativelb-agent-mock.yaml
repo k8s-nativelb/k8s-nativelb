@@ -19,7 +19,7 @@ spec:
       hostNetwork: true
       containers:
         - name: agent
-          image: quay.io/k8s-nativelb/nativelb-agent:latest
+          image: quay.io/k8s-nativelb/nativelb-agent-mock:latest
           imagePullPolicy: Always
           securityContext:
             capabilities:

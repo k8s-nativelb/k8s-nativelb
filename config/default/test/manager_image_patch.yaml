@@ -1,0 +1,39 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nativelb-agent
+  namespace: nativelb
+  labels:
+    k8s.nativelb.io/cluster: cluster-internal
+spec:
+  template:
+    spec:
+      containers:
+        - name: agent
+          image: registry:5000/k8s-nativelb/nativelb-agent:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nativelb-controller
+  namespace: nativelb
+spec:
+  template:
+    spec:
+      containers:
+        - image: registry:5000/k8s-nativelb/nativelb-controller:latest
+          name: controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nativelb-agent-cluster
+  namespace: nativelb
+spec:
+  template:
+    spec:
+      containers:
+        - name: agent
+          image: registry:5000/k8s-nativelb/nativelb-agent:latest
+          imagePullPolicy: Always
