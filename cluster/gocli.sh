@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-gocli="docker run --net=host --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock quay.io/k8s-nativelb/gocli:latest"
+gocli="docker run --net=host --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/gocli:latest"

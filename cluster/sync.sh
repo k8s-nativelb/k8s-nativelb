@@ -28,19 +28,14 @@ registry=localhost:$registry_port
 REGISTRY=$registry make docker-build
 REGISTRY=$registry make docker-push
 
-./cluster/kubectl.sh delete --ignore-not-found -f ./config/crds/
-./cluster/kubectl.sh delete --ignore-not-found -f ./config/rbac/
-./cluster/kubectl.sh delete --ignore-not-found ns nativelb
+./cluster/kubectl.sh delete --ignore-not-found -f ./config/test/k8s-nativelb.yaml || true
 
 # Wait until all objects are deleted
 until [[ `./cluster/kubectl.sh get ns | grep "nativelb " | wc -l` -eq 0 ]]; do
     sleep 5
 done
 
-./cluster/kubectl.sh apply -f config/crds/
-./cluster/kubectl.sh apply -f config/rbac/
-./cluster/kubectl.sh create ns nativelb
-./cluster/kubectl.sh apply -f config/develop/
+./cluster/kubectl.sh apply -f ./config/test/k8s-nativelb.yaml
 
 # Make sure all containers are ready
 while [ -n "$(./cluster/kubectl.sh get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do

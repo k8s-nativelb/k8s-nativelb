@@ -19,7 +19,7 @@ NUM_NODES=${NUM_NODES:-0}
 # KUBEADM_DIND_LOCAL=
 
 # Image name base for k-d-c
-DIND_IMAGE_BASE="${DIND_IMAGE_BASE:-quay.io/schseba/kubeadm-dind-cluster-ipvs}"
+DIND_IMAGE_BASE="${DIND_IMAGE_BASE:-quay.io/schseba/kubeadm-dind-cluster-iptables}"
 
 # Specify DIND image to use. mirantis/kubeadm-dind-cluster:local
 # is the one that is built locally using build/build-local.sh
