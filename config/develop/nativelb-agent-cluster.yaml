@@ -15,6 +15,7 @@ spec:
     metadata:
       labels:
         k8s.nativelb.io/daemonset: nativelb-agent-cluster
+        k8s.nativelb.io/cluster: cluster-sample-cluster
         daemonset.nativelb.io/port: "8000"
     spec:
       containers:

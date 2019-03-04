@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2018 Red Hat, Inc.
+# Copyright 2018 k8s-nativelb, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
 # limitations under the License.
 #
 
-set -e
-
-source $(dirname "$0")/../hack/common.sh
-
-source ${NATIVELB_DIR}/cluster/$NATIVELB_PROVIDER/provider.sh
-source ${NATIVELB_DIR}/hack/config.sh
-
-_kubectl "$@"
+docker run --rm -t --user $(id -u):$(id -g) \
+           --network host \
+           --volume `pwd`:/go/src/github.com/k8s-nativelb \
+           --env KUBECONFIG=/go/src/github.com/k8s-nativelb/cluster/dind-cluster/config \
+           --env COVERALLS_TOKEN=$COVERALLS_TOKEN \
+           --workdir /go/src/github.com/k8s-nativelb/ \
+           quay.io/k8s-nativelb/base-image:latest ./cluster/dind-cluster/kubectl "$@"

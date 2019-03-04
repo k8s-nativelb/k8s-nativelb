@@ -261,6 +261,9 @@ func (c *ClusterController) keepalive() {
 		}
 
 		cluster.Status.Agents[agent.Name] = &agent
-		c.updateLabels(cluster, v1.ClusterConnectionStatusSuccess)
+		updatedCluster, err := c.updateLabels(cluster, v1.ClusterConnectionStatusSuccess)
+		if err == nil {
+			cluster = updatedCluster
+		}
 	}
 }

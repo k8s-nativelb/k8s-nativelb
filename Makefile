@@ -36,9 +36,13 @@ manifests:
 crd:
 	echo "Need to update the crd manualy (remove status and things other then Proterties)"
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd
+	mv config/crds/* config/base/crds/
+	rm -rf config/crds
 
 rbac:
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac
+	mv config/rbac/* config/base/rbac/
+	rm -rf config/rbac
 
 # Generate code
 generate:
@@ -46,6 +50,8 @@ generate:
 	go generate ./pkg/... ./cmd/...
 	protoc -I. proto/native-lb.proto --go_out=plugins=grpc:.
 	cp proto/native-lb.pb.go pkg/proto/proto.pb.go
+	kustomize build config/default/release/ > config/release/k8s-nativelb.yaml
+	kustomize build config/default/test/ > config/test/k8s-nativelb.yaml
 
 vet:
 	go vet ./pkg/... ./cmd/...
@@ -87,7 +93,7 @@ docker-build:
 	docker build -f./cmd/nativelb-agent-mock/Dockerfile -t ${REGISTRY}/${IMG_AGENT_MOCK}:${IMAGE_TAG} .
 
 # Push the docker image
-docker-push: docker-build
+docker-push:
 	docker push ${REGISTRY}/${IMG_CONTROLLER}:${IMAGE_TAG}
 	docker push ${REGISTRY}/${IMG_AGENT}:${IMAGE_TAG}
 	docker push ${REGISTRY}/${IMG_AGENT_MOCK}:${IMAGE_TAG}
@@ -100,3 +106,4 @@ cluster-down:
 
 cluster-sync:
 	./cluster/sync.sh
+

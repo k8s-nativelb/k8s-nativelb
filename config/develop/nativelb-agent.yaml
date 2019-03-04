@@ -5,7 +5,7 @@ metadata:
   name: nativelb-agent
   namespace: nativelb
   labels:
-    k8s.nativelb.io/cluster: cluster-sample-internal
+    k8s.nativelb.io/cluster: cluster-internal
 spec:
   selector:
     matchLabels:
@@ -33,7 +33,7 @@ spec:
             - name: CONTROL_PORT
               value: "8000"
             - name: CLUSTER_NAME
-              value: "cluster-sample-internal"
+              value: "cluster-internal"
           volumeMounts:
             - name: bind
               mountPath: /var/proc/sys/net/ipv4/ip_nonlocal_bind

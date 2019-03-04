@@ -18,9 +18,12 @@ package handler
 
 import (
 	"github.com/k8s-nativelb/pkg/log"
+	"github.com/vishvananda/netlink"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
+	"syscall"
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
@@ -37,6 +40,8 @@ const (
 	NginxConfigFile   = "/etc/nginx/nginx.conf"
 	NginxTemplateFile = "/templates/nginx-template.tmpl"
 	NginxPID          = "/run/nginx.pid"
+
+	keepalivedInterfaceName = "ipvs0"
 )
 
 type HandlerInterface interface {
@@ -127,6 +132,24 @@ func (h *Handler) StartNginx() (string, error) {
 }
 
 func (h *Handler) StartKeepalived() (string, error) {
+	h.removeKeepalivedInterface()
+
+	keepalivedInterfaceLink := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{Name: keepalivedInterfaceName},
+	}
+
+	err := netlink.LinkAdd(keepalivedInterfaceLink)
+	if err != nil && err != syscall.EEXIST {
+		log.Log.Reason(err).Errorf("failed to add link %s", keepalivedInterfaceName)
+		return "", err
+	}
+
+	err = netlink.LinkSetUp(keepalivedInterfaceLink)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to set link %s up", keepalivedInterfaceName)
+		return "", err
+	}
+
 	cmd := exec.Command("keepalived", "--log-console", "--log-detail")
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
@@ -227,5 +250,19 @@ func (h *Handler) StopKeepalived(pid string) error {
 		log.Log.Reason(err).Errorf("failed to remove %s file", KeepalivedPID)
 	}
 
+	h.removeKeepalivedInterface()
+
 	return nil
+}
+
+func (h *Handler) removeKeepalivedInterface() {
+	keepalivedInterfaceLink, err := netlink.LinkByName(keepalivedInterfaceName)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return
+	}
+
+	err = netlink.LinkDel(keepalivedInterfaceLink)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to delete %s interface", keepalivedInterfaceName)
+	}
 }

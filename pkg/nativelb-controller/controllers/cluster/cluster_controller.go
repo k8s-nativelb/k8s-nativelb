@@ -17,6 +17,7 @@ limitations under the License.
 package cluster_controller
 
 import (
+	"flag"
 	"github.com/k8s-nativelb/pkg/apis/nativelb/v1"
 	"github.com/k8s-nativelb/pkg/kubecli"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/grpc-manager"
@@ -46,6 +47,7 @@ type ClusterController struct {
 }
 
 func NewClusterController(nativelbClient kubecli.NativelbClient, agentController *agent_controller.AgentController, clusterConnection *grpc_manager.NativeLBGrpcManager) (*ClusterController, error) {
+	flag.Parse()
 	reconcileInstance := newReconciler(nativelbClient)
 	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {

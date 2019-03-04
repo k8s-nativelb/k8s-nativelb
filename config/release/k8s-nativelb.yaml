@@ -1,24 +1,9 @@
----
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
   name: nativelb
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  creationTimestamp: null
-  name: manager-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: default
-    namespace: nativelb
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -37,8 +22,14 @@ spec:
     openAPIV3Schema:
       properties:
         apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -54,10 +45,10 @@ spec:
               format: int32
               type: integer
           required:
-            - hostName
-            - ipAddress
-            - port
-            - cluster
+          - hostName
+          - ipAddress
+          - port
+          - cluster
           type: object
         status:
           properties:
@@ -83,7 +74,7 @@ spec:
               type: string
           type: object
       required:
-        - spec
+      - spec
   version: v1
 status:
   acceptedNames:
@@ -109,8 +100,14 @@ spec:
     openAPIV3Schema:
       properties:
         apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -128,8 +125,8 @@ spec:
               format: int64
               type: integer
           required:
-            - host
-            - port
+          - host
+          - port
           type: object
         status:
           properties:
@@ -157,17 +154,17 @@ spec:
               format: int64
               type: integer
           required:
-            - live
-            - totalConnections
-            - activeConnections
-            - refusedConnections
-            - rx
-            - tx
-            - rxSecond
-            - txSecond
+          - live
+          - totalConnections
+          - activeConnections
+          - refusedConnections
+          - rx
+          - tx
+          - rxSecond
+          - txSecond
           type: object
       required:
-        - spec
+      - spec
   version: v1
 status:
   acceptedNames:
@@ -193,21 +190,40 @@ spec:
     openAPIV3Schema:
       properties:
         apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           properties:
             default:
+              description: 'Only one can exist true: any service of type loadbalancer
+                will be created on the cluster false: only services with the cluster
+                annotation name will be created on the cluster'
               type: boolean
             internal:
+              description: 'true: Point pods as backends false: Point nodes as service
+                backends'
               type: boolean
-            ipRange:
+            rangeEnd:
+              type: string
+            rangeStart:
+              type: string
+            subnet:
+              description: subnet to allocate from.
+              type: string
+            type:
+              description: Cluster Type (NativeAgent,Custom) default NativeAgent
               type: string
           required:
-            - ipRange
+          - subnet
           type: object
         status:
           properties:
@@ -223,8 +239,8 @@ spec:
               format: date-time
               type: string
           required:
-            - connectionStatus
-            - lastUpdate
+          - connectionStatus
+          - lastUpdate
           type: object
   version: v1
 status:
@@ -251,8 +267,14 @@ spec:
     openAPIV3Schema:
       properties:
         apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -271,11 +293,11 @@ spec:
             serviceNamespace:
               type: string
           required:
-            - serviceName
-            - serviceNamespace
-            - cluster
-            - ports
-            - servers
+          - serviceName
+          - serviceNamespace
+          - cluster
+          - ports
+          - servers
           type: object
         status:
           properties:
@@ -311,8 +333,14 @@ spec:
     openAPIV3Schema:
       properties:
         apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -345,15 +373,15 @@ spec:
                         format: int64
                         type: integer
                     required:
-                      - host
-                      - port
+                    - host
+                    - port
                     type: object
                   type: array
                 kind:
                   type: string
               required:
-                - kind
-                - backend
+              - kind
+              - backend
               type: object
             healthCheck:
               properties:
@@ -390,15 +418,15 @@ spec:
                   type: integer
               type: object
           required:
-            - bind
-            - port
-            - protocol
-            - balance
-            - maxConnections
-            - clientIdleTimeout
-            - backendIdleTimeout
-            - backendConnectionTimeout
-            - discovery
+          - bind
+          - port
+          - protocol
+          - balance
+          - maxConnections
+          - clientIdleTimeout
+          - backendIdleTimeout
+          - backendConnectionTimeout
+          - discovery
           type: object
         status:
           properties:
@@ -419,7 +447,7 @@ spec:
               type: integer
           type: object
       required:
-        - spec
+      - spec
   version: v1
 status:
   acceptedNames:
@@ -427,3 +455,68 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - k8s.nativelb
+  resources:
+  - agent
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: null
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: nativelb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: nativelb-controller
+  name: nativelb-controller
+  namespace: nativelb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: nativelb-controller
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        control-plane: nativelb-controller
+    spec:
+      containers:
+      - image: quay.io/k8s-nativelb/nativelb-controller:latest
+        imagePullPolicy: Always
+        name: controller
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+          requests:
+            cpu: 500m
+            memory: 200Mi
+      terminationGracePeriodSeconds: 10

@@ -5,7 +5,7 @@ import (
 	. "github.com/k8s-nativelb/tests"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	core "k8s.io/api/core/v1"
@@ -27,7 +27,7 @@ var _ = Describe("Controller", func() {
 
 	Describe("Create Service", func() {
 		It("Should not create a farm for clusterIP service", func() {
-			nginxDeploymentName := "nginx1"
+			nginxDeploymentName := "nginx-" +  rand.String(12)
 			selectorLabel := map[string]string{"app":nginxDeploymentName}
 			deployment := CreateNginxDeployment(nginxDeploymentName,"8080",selectorLabel)
 			deployment,err = testClient.KubeClient.AppsV1().Deployments(TestNamespace).Create(deployment)
@@ -36,7 +36,7 @@ var _ = Describe("Controller", func() {
 			WaitForDeploymentToBeReady(testClient,deployment)
 
 			ports := []core.ServicePort{{Name: "port1", Protocol: "TCP", Port: 8080}}
-			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-service", Namespace: TestNamespace},
+			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-service-"+  rand.String(12), Namespace: TestNamespace},
 				Spec: core.ServiceSpec{Selector: selectorLabel, Ports: ports}}
 
 			clusterIpService, err := testClient.KubeClient.CoreV1().Services(TestNamespace).Create(clusterIpService)
@@ -56,7 +56,7 @@ var _ = Describe("Controller", func() {
 		})
 
 		It("Should create a farm representing a TCP Loadbalancer service", func() {
-			nginxDeploymentName := "nginx1"
+			nginxDeploymentName := "nginx-" +  rand.String(12)
 			selectorLabel := map[string]string{"app":nginxDeploymentName}
 			deployment := CreateNginxDeployment(nginxDeploymentName,"8080",selectorLabel)
 			deployment,err = testClient.KubeClient.AppsV1().Deployments(TestNamespace).Create(deployment)
@@ -65,7 +65,7 @@ var _ = Describe("Controller", func() {
 			WaitForDeploymentToBeReady(testClient,deployment)
 
 			ports := []core.ServicePort{{Name: "port1", Protocol: "TCP", Port: 8080}}
-			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-loadbalancer", Namespace: TestNamespace,Annotations:InClusterAgentLabel},
+			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-loadbalancer-"+  rand.String(12), Namespace: TestNamespace,Annotations:DaemonClusterAgentLabel},
 				Spec: core.ServiceSpec{Selector: selectorLabel, Ports: ports, Type: core.ServiceTypeLoadBalancer}}
 
 			clusterIpService, err = testClient.KubeClient.CoreV1().Services(TestNamespace).Create(clusterIpService)
@@ -79,20 +79,27 @@ var _ = Describe("Controller", func() {
 			Expect(len(clusterIpService.Status.LoadBalancer.Ingress)).To(Equal(1))
 
 			serviceIpAddr := clusterIpService.Status.LoadBalancer.Ingress[0].IP
-			farm, err := testClient.NativelbClient.Farm().Get(FarmName("nginx-loadbalancer"))
+			farm, err := testClient.NativelbClient.Farm().Get(FarmName(clusterIpService.Name))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(farm.Status.IpAdress).To(Equal(serviceIpAddr))
 
-			CurlFromClient(testClient,fmt.Sprintf("http://%s:%d",serviceIpAddr,8080))
+			CurlFromClient(testClient,fmt.Sprintf("http://%s:%d",serviceIpAddr,8080),true)
 
 			err = testClient.KubeClient.CoreV1().Services(TestNamespace).Delete(clusterIpService.Name, &metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
+			Eventually(func() error {
+				_,err = testClient.NativelbClient.Farm().Get(FarmName(clusterIpService.Name))
+				return err
+			},30,5).ShouldNot(BeNil())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			CurlFromClient(testClient,fmt.Sprintf("http://%s:%d",serviceIpAddr,8080),false)
 			DeleteNginxDeployment(testClient,deployment)
 		})
 
 		It("Should create a farm representing a UDP Loadbalancer service", func() {
-			nginxDeploymentName := "udp1"
+			nginxDeploymentName := "nginx-" +  rand.String(12)
 			selectorLabel := map[string]string{"app":nginxDeploymentName}
 			deployment := CreateUdpServerDeployment(nginxDeploymentName,"8080",selectorLabel)
 			deployment,err = testClient.KubeClient.AppsV1().Deployments(TestNamespace).Create(deployment)
@@ -101,7 +108,7 @@ var _ = Describe("Controller", func() {
 			WaitForDeploymentToBeReady(testClient,deployment)
 
 			ports := []core.ServicePort{{Name: "port1", Protocol: "UDP", Port: 8080}}
-			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-udp-loadbalancer", Namespace: TestNamespace,Annotations:InClusterAgentLabel},
+			clusterIpService := &core.Service{ObjectMeta: metav1.ObjectMeta{Name: "nginx-udp-loadbalancer-"+rand.String(6), Namespace: TestNamespace,Annotations:DaemonClusterAgentLabel},
 				Spec: core.ServiceSpec{Selector: selectorLabel, Ports: ports, Type: core.ServiceTypeLoadBalancer}}
 
 			clusterIpService, err = testClient.KubeClient.CoreV1().Services(TestNamespace).Create(clusterIpService)
@@ -115,15 +122,22 @@ var _ = Describe("Controller", func() {
 			Expect(len(clusterIpService.Status.LoadBalancer.Ingress)).To(Equal(1))
 
 			serviceIpAddr := clusterIpService.Status.LoadBalancer.Ingress[0].IP
-			farm, err := testClient.NativelbClient.Farm().Get(FarmName("nginx-udp-loadbalancer"))
+			farm, err := testClient.NativelbClient.Farm().Get(FarmName(clusterIpService.Name))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(farm.Status.IpAdress).To(Equal(serviceIpAddr))
 
-			UdpDialFromClient(testClient,fmt.Sprintf("%s:%d",serviceIpAddr,8080))
+			UdpDialFromClient(testClient,fmt.Sprintf("%s:%d",serviceIpAddr,8080),true)
 
 			err = testClient.KubeClient.CoreV1().Services(TestNamespace).Delete(clusterIpService.Name, &metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
+			Eventually(func() error {
+				_,err = testClient.NativelbClient.Farm().Get(FarmName(clusterIpService.Name))
+				return err
+			},30,5).ShouldNot(BeNil())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			UdpDialFromClient(testClient,fmt.Sprintf("%s:%d",serviceIpAddr,8080),false)
 			DeleteNginxDeployment(testClient,deployment)
 		})
 	})

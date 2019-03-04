@@ -12,21 +12,22 @@ vrrp_instance {{ $k }} {
   nopreempt
   advert_int 1
 
-  track_interface {
-    {{ $v.Iface }}
-  }
-
   virtual_ipaddress {
-    {{ $v.MainVip }}
+    {{ $v.MainVip }} dev ipvs0
   }
 
   virtual_ipaddress_excluded { {{ range $v.SecVips }}
-      {{ . }}{{ end }}
+      {{ . }} dev ipvs0{{ end }}
   }
 
   track_script {
     check_loadbalancer
+#    check_udp_loadbalancer
   }
+
+  track_interface {
+      {{ $v.Iface }}
+    }
 }
 
 {{end}}
@@ -34,6 +35,12 @@ vrrp_instance {{ $k }} {
 # Script used to check if loadbalancer process is running
 vrrp_script check_loadbalancer {
 script "killall -0 haproxy"
+interval 2
+weight 2
+}
+
+vrrp_script check_udp_loadbalancer {
+script "killall -0 nginx"
 interval 2
 weight 2
 }

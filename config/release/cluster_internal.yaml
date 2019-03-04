@@ -1,11 +1,4 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: nativelb
----
 apiVersion: k8s.native-lb/v1
 kind: Cluster
 metadata:
@@ -17,4 +10,4 @@ metadata:
 spec:
   default: true
   internal: true
-  ipRange: "10.0.0.0/24"
+  subnet: "10.0.0.0/24"

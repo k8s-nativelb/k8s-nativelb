@@ -1,0 +1,13 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nativelb-controller
+  namespace: nativelb
+spec:
+  template:
+    spec:
+      containers:
+        - image: registry:5000/k8s-nativelb/nativelb-controller:latest
+          name: controller
+          imagePullPolicy: Always

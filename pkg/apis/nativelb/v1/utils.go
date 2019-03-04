@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	EventRecorderName     = "nativelb"
-	ControllerNamespace   = "nativelb"
-	ClusterLabel          = "k8s.nativelb.io/cluster"
+	EventRecorderName   = "nativelb"
+	ControllerNamespace = "nativelb"
+	ClusterLabel        = "k8s.nativelb.io/cluster"
+
 	NativeLBAnnotationKey = "k8s.nativelb.io/cluster"
 	NativeLBDefaultLabel  = "k8s.nativelb.io/default"
 	DaemonsetLabel        = "k8s.nativelb.io/daemonset"
