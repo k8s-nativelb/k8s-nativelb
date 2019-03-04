@@ -1,0 +1,14 @@
+---
+apiVersion: k8s.native-lb/v1
+kind: Cluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: cluster-sample-cluster
+  namespace: nativelb
+spec:
+  default: false
+  internal: true
+  subnet: "10.192.0.0/24"
+  rangeStart: "10.192.0.30"
+  rangeEnd: "10.192.0.60"

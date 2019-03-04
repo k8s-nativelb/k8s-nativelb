@@ -13,13 +13,13 @@ fi
 # Number of nodes. 0 nodes means just one master node.
 # In case of NUM_NODES=0 'node-role.kubernetes.io/master' taint is removed
 # from the master node.
-NUM_NODES=${NUM_NODES:-0}
+NUM_NODES=${NUM_NODES:-2}
 
 # Use non-dockerized build
 # KUBEADM_DIND_LOCAL=
 
 # Image name base for k-d-c
-DIND_IMAGE_BASE="${DIND_IMAGE_BASE:-quay.io/schseba/kubeadm-dind-cluster-iptables}"
+DIND_IMAGE_BASE="${DIND_IMAGE_BASE:-quay.io/k8s-nativelb/kubeadm-dind-cluster-iptables}"
 
 # Specify DIND image to use. mirantis/kubeadm-dind-cluster:local
 # is the one that is built locally using build/build-local.sh

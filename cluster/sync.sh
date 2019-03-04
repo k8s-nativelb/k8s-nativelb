@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2018 Red Hat, Inc.
+# Copyright 2018 k8s-nativelb, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,11 @@
 
 set -ex
 
-source hack/common.sh
-source cluster/$NATIVELB_PROVIDER/provider.sh
-source hack/config.sh
-source ./cluster/gocli.sh
-
-registry_port=$($gocli --prefix $provider_prefix ports registry | tr -d '\r')
-registry=localhost:$registry_port
-
+registry=localhost:5000
 REGISTRY=$registry make docker-build
 REGISTRY=$registry make docker-push
 
-./cluster/kubectl.sh delete --ignore-not-found -f ./config/test/k8s-nativelb.yaml || true
+./cluster/kubectl.sh delete --ignore-not-found -f ./config/test/k8s-nativelb.yaml
 
 # Wait until all objects are deleted
 until [[ `./cluster/kubectl.sh get ns | grep "nativelb " | wc -l` -eq 0 ]]; do
@@ -36,6 +29,7 @@ until [[ `./cluster/kubectl.sh get ns | grep "nativelb " | wc -l` -eq 0 ]]; do
 done
 
 ./cluster/kubectl.sh apply -f ./config/test/k8s-nativelb.yaml
+./cluster/kubectl.sh apply -f ./config/develop/
 
 # Make sure all containers are ready
 while [ -n "$(./cluster/kubectl.sh get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
@@ -57,7 +51,7 @@ metadata:
   name: $name
   namespace: nativelb
   labels:
-    nativelb.io/cluster: cluster-sample-cluster
+    k8s.nativelb.io/cluster: cluster-sample-cluster
 spec:
   hostName: $name
   ipAddress: $ipaddr

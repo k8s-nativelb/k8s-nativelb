@@ -122,12 +122,13 @@ func (n *NativeLBGrpcManager) GetAgentStatus(agent *v1.Agent, agentNumber, numOf
 	agent.Status.Time = agentStatus.Time
 	agent.Status.Uptime = time.Duration(agentStatus.Uptime.Seconds)
 	agent.Status.Version = agentStatus.Version
-	agent, err = n.updateAgentStatus(agent)
+	updatedAgent, err := n.updateAgentStatus(agent)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to update agent %s status error: %v", agent.Name, err)
 		return
 	}
 
+	agent = updatedAgent
 	intResourceVersion, err = strconv.Atoi(agent.ResourceVersion)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to convert agent resource version %s from string to int", agent.ResourceVersion)
@@ -194,6 +195,10 @@ func (n *NativeLBGrpcManager) sendDataToAgent(command string, farm *v1.Farm, clu
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get agents list for cluster %s error: %v", cluster.Name, err)
 		return err
+	}
+
+	if len(agents.Items) == 0 {
+		return fmt.Errorf("no agent founds for cluster %s", cluster.Name)
 	}
 
 	data := proto.ConvertFarmToGrpcData(farm, cluster.Status.AllocatedNamespaces[farm.Spec.ServiceNamespace].RouterID)

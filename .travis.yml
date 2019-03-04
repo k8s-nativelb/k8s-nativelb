@@ -5,7 +5,7 @@ services:
 - docker
 
 env:
-- BUILDER_NAME="k8s-nativelb/${TRAVIS_JOB_ID}builder" CPLATFORM=minikube CDIST=kubernetes CVER=1.12.2
+- BUILDER_NAME="k8s-nativelb/${TRAVIS_JOB_ID}builder" CDIST=kubernetes CVER=1.13.3
 
 #jobs:
 #  include:
@@ -19,24 +19,14 @@ env:
 #  - name: "minishift (3.10)"
 #    env: CPLATFORM=minishift CDIST=origin CVER=3.10.0
 
-# TODO: Include a job for unittest only
-
-cache:
-  directories:
-  - cache
-  - "~/.minishift/cache"
-  - "~/.minikube/cache"
-
 script:
-## FIXME Workaround for https://github.com/kubernetes/kubernetes/issues/61058
-### And https://github.com/LiliC/travis-minikube/blob/e0f26f7b388057f51a0e2558afd5f990e07b6c49/.travis.yml#L11
-- sudo mount --make-rshared /
-- bash -x ci/prepare-host $CPLATFORM $CVER
-- bash -x ci/start-cluster $CPLATFORM $CVER
-- bash -x ci/deploy-nativelb $CPLATFORM $CVER
+- sudo cp ./cluster/dind-cluster/kubectl /usr/bin/kubectl
+- make docker-generate
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run make. Please run it and commit the changes"; git status --porcelain; false; fi
 - if [[ $TRAVIS_REPO_SLUG == "k8s-nativelb/k8s-nativelb" ]]; then make docker-goveralls; else make docker-test; fi
-- timeout 20m bash -x hack/run.sh functest
+- make cluster-up
+- make cluster-sync
+- timeout 20m make docker-functest
 
 deploy:
 - provider: script

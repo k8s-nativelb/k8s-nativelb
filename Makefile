@@ -93,7 +93,7 @@ docker-build:
 	docker build -f./cmd/nativelb-agent-mock/Dockerfile -t ${REGISTRY}/${IMG_AGENT_MOCK}:${IMAGE_TAG} .
 
 # Push the docker image
-docker-push: docker-build
+docker-push:
 	docker push ${REGISTRY}/${IMG_CONTROLLER}:${IMAGE_TAG}
 	docker push ${REGISTRY}/${IMG_AGENT}:${IMAGE_TAG}
 	docker push ${REGISTRY}/${IMG_AGENT_MOCK}:${IMAGE_TAG}
@@ -106,3 +106,4 @@ cluster-down:
 
 cluster-sync:
 	./cluster/sync.sh
+

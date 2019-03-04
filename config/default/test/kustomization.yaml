@@ -1,12 +1,5 @@
 bases:
   - ../../base
 
-resources:
-- develop/cluster_external.yaml
-- develop/cluster_internal.yaml
-- develop/cluster_internal_cluster.yaml
-- develop/nativelb-agent.yaml
-- develop/nativelb-agent-cluster.yaml
-
 patchesStrategicMerge:
 - manager_image_patch.yaml

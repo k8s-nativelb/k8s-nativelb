@@ -15,6 +15,5 @@
 # limitations under the License.
 #
 
-source hack/common.sh
-source cluster/$NATIVELB_PROVIDER/provider.sh
-down
+docker rm -f registry
+./cluster/dind-cluster/dind-cluster-v1.13.sh clean

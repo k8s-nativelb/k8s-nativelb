@@ -17,6 +17,12 @@
 
 set -e
 
-source hack/common.sh
-source cluster/$NATIVELB_PROVIDER/provider.sh
-up
+./cluster/dind-cluster/dind-cluster-v1.13.sh up
+docker run -d -p 5000:5000 --rm --network kubeadm-dind-net --name registry registry:2
+kubectl config view --raw > ./cluster/dind-cluster/config
+
+docker build -t localhost:5000/k8s-nativelb/nativelb-nginx ./hack/nginx-docker
+docker push localhost:5000/k8s-nativelb/nativelb-nginx
+
+docker build -t localhost:5000/k8s-nativelb/nativelb-client ./hack/client-docker
+docker push localhost:5000/k8s-nativelb/nativelb-client

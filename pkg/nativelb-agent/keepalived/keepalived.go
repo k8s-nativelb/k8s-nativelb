@@ -190,5 +190,4 @@ func (k *Keepalived) StopEngine() {
 		log.Log.Reason(err).Errorf("failed to stop keepalived process")
 	}
 	k.pid = ""
-	//TODO: Cleanup the ip configuration
 }

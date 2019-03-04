@@ -7,16 +7,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *ClusterController) updateLabels(cluster *v1.Cluster, status string) {
+func (c *ClusterController) updateLabels(cluster *v1.Cluster, status string) (*v1.Cluster, error) {
 	if cluster.Labels == nil {
 		cluster.Labels = make(map[string]string)
 	}
-	cluster.Status.ConnectionStatus = status
-	cluster.Status.LastUpdate = metav1.Now()
-	cluster, err := c.Cluster().Update(cluster)
+	updatedCluster := cluster.DeepCopy()
+	updatedCluster.Status.ConnectionStatus = status
+	updatedCluster.Status.LastUpdate = metav1.Now()
+	updatedCluster, err := c.Cluster().Update(updatedCluster)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to update labels and status on cluster %s error %v", cluster.Name, err)
+		return nil, err
 	}
+	return updatedCluster, nil
 }
 
 func (c *ClusterController) ifUpdateFailedUpdateFailStatus(err error, cluster *v1.Cluster, reason, message string) bool {

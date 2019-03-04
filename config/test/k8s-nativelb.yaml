@@ -493,52 +493,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    k8s.nativelb.io/cluster: cluster-sample-cluster
-  name: nativelb-agent-cluster
-  namespace: nativelb
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      k8s.nativelb.io/daemonset: nativelb-agent-cluster
-  template:
-    metadata:
-      labels:
-        daemonset.nativelb.io/port: "8000"
-        k8s.nativelb.io/daemonset: nativelb-agent-cluster
-    spec:
-      containers:
-      - env:
-        - name: CONTROL_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: CONTROL_PORT
-          value: "8000"
-        - name: CLUSTER_NAME
-          value: cluster-sample-cluster
-        image: registry:5000/k8s-nativelb/nativelb-agent:latest
-        imagePullPolicy: IfNotPresent
-        name: agent
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-            - SYS_MODULE
-          privileged: true
-        volumeMounts:
-        - mountPath: /var/proc/sys/net/ipv4/ip_nonlocal_bind
-          name: bind
-      terminationGracePeriodSeconds: 15
-      volumes:
-      - hostPath:
-          path: /proc/sys/net/ipv4/ip_nonlocal_bind
-        name: bind
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
     control-plane: nativelb-controller
   name: nativelb-controller
   namespace: nativelb
@@ -556,7 +510,7 @@ spec:
     spec:
       containers:
       - image: registry:5000/k8s-nativelb/nativelb-controller:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: controller
         resources:
           limits:
@@ -566,87 +520,3 @@ spec:
             cpu: 500m
             memory: 200Mi
       terminationGracePeriodSeconds: 10
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  labels:
-    k8s.nativelb.io/cluster: cluster-internal
-  name: nativelb-agent
-  namespace: nativelb
-spec:
-  selector:
-    matchLabels:
-      k8s.nativelb.io/daemonset: nativelb-agent
-  template:
-    metadata:
-      labels:
-        daemonset.nativelb.io/port: "8000"
-        k8s.nativelb.io/daemonset: nativelb-agent
-    spec:
-      containers:
-      - env:
-        - name: CONTROL_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: CONTROL_PORT
-          value: "8000"
-        - name: CLUSTER_NAME
-          value: cluster-internal
-        image: registry:5000/k8s-nativelb/nativelb-agent:latest
-        imagePullPolicy: IfNotPresent
-        name: agent
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-            - SYS_MODULE
-          privileged: true
-        volumeMounts:
-        - mountPath: /var/proc/sys/net/ipv4/ip_nonlocal_bind
-          name: bind
-      hostNetwork: true
-      terminationGracePeriodSeconds: 15
-      volumes:
-      - hostPath:
-          path: /proc/sys/net/ipv4/ip_nonlocal_bind
-        name: bind
----
-apiVersion: k8s.native-lb/v1
-kind: Cluster
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: cluster-external
-  namespace: nativelb
-spec:
-  default: false
-  internal: false
-  subnet: 11.0.0.0/24
----
-apiVersion: k8s.native-lb/v1
-kind: Cluster
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-    k8s.nativelb.io/default: "true"
-  name: cluster-internal
-  namespace: nativelb
-spec:
-  default: true
-  internal: true
-  subnet: 10.0.0.0/24
----
-apiVersion: k8s.native-lb/v1
-kind: Cluster
-metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: cluster-sample-cluster
-  namespace: nativelb
-spec:
-  default: false
-  internal: true
-  rangeStart: 10.0.0.10
-  subnet: 10.0.0.0/24
