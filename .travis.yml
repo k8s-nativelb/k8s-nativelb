@@ -30,12 +30,12 @@ script:
 
 deploy:
 - provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io && make docker-push
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io && make docker-build && make docker-push
   skip_cleanup: true
   on:
     branch: master
 - provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io && make docker-push IMAGE_TAG=$TRAVIS_TAG
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" quay.io && IMAGE_TAG=$TRAVIS_TAG make docker-build && IMAGE_TAG=$TRAVIS_TAG make docker-push
   skip_cleanup: true
   file:
   on:
