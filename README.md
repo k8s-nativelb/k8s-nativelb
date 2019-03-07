@@ -30,18 +30,21 @@ kubectl apply -f
 * Create a cluster configuration
 ```bash
 cat << EOF | kubectl create -f - > /dev/null 2>&1
+---
 apiVersion: k8s.native-lb/v1
 kind: Cluster
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
-    k8s.nativelb.default: "true"
+    k8s.nativelb.io/default: "true"
   name: cluster-internal
   namespace: nativelb
 spec:
   default: true
   internal: true
-  ipRange: "10.0.0.0/24"
+  subnet: "10.192.0.0/24"
+  rangeStart: "10.192.0.70"
+  rangeEnd: "10.192.0.90"
 EOF
 ```
 
@@ -50,21 +53,22 @@ EOF
 * Deploy the in cluster agent
 ```bash
 cat << EOF | kubectl create -f - > /dev/null 2>&1
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nativelb-agent
   namespace: nativelb
   labels:
-    nativelb.io/cluster: cluster-sample-internal
+    k8s.nativelb.io/cluster: cluster-internal
 spec:
   selector:
     matchLabels:
-      nativelb.io/daemonset: nativelb-agent
+      k8s.nativelb.io/daemonset: nativelb-agent
   template:
     metadata:
       labels:
-        nativelb.io/daemonset: nativelb-agent
+        k8s.nativelb.io/daemonset: nativelb-agent
         daemonset.nativelb.io/port: "8000"
     spec:
       hostNetwork: true
