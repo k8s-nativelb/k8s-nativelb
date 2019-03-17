@@ -22,6 +22,7 @@ var (
 	ClientPod = &corev1.Pod{}
 	InClusterAgentLabel = map[string]string{nativelb.ClusterLabel:"cluster-sample-cluster"}
 	DaemonClusterAgentLabel = map[string]string{nativelb.ClusterLabel:"cluster-internal"}
+	ExternalClusterAgentLabel = map[string]string{nativelb.ClusterLabel:"cluster-external"}
 	terminate = int64(0)
 )
 

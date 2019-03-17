@@ -1,7 +1,6 @@
 if [[ ${IP_MODE} = "ipv4" ]]; then
-    # DIND_SUBNET="10.192.0.0"
-    # DIND_SUBNET_SIZE=16
-    :
+    DIND_SUBNET="10.192.0.0"
+    DIND_SUBNET_SIZE=24
 else
     # DinD subnet (expected to be /64)
     DIND_SUBNET="${DIND_SUBNET:-fd00:10::}"

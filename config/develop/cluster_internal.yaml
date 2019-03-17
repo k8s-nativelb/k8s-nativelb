@@ -11,6 +11,5 @@ spec:
   default: true
   internal: true
   subnet: "10.192.0.0/24"
-  rangeStart: "10.192.0.70"
-  rangeEnd: "10.192.0.90"
-
+  rangeStart: "10.192.0.20"
+  rangeEnd: "10.192.0.60"
