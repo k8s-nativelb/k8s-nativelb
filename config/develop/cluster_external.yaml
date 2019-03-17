@@ -7,7 +7,8 @@ metadata:
   name: cluster-external
   namespace: nativelb
 spec:
-  # Add fields here
   default: false
   internal: false
-  subnet: "11.0.0.0/24"
+  subnet: "10.192.0.0/24"
+  rangeStart: "10.192.0.70"
+  rangeEnd: "10.192.0.90"

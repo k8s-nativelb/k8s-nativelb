@@ -22,6 +22,8 @@ REGISTRY=$registry make docker-build
 REGISTRY=$registry make docker-push
 
 ./cluster/kubectl.sh delete --ignore-not-found -f ./config/test/k8s-nativelb.yaml
+docker rm -f agent-1 | true
+docker rm -f agent-2 | true
 
 # Wait until all objects are deleted
 until [[ `./cluster/kubectl.sh get ns | grep "nativelb " | wc -l` -eq 0 ]]; do
@@ -38,25 +40,50 @@ while [ -n "$(./cluster/kubectl.sh get pods --all-namespaces -o'custom-columns=s
     sleep 10
 done
 
-./cluster/kubectl.sh get pods -n nativelb -o'custom-columns=status:status.podIP,metadata:metadata.name' --no-headers | grep nativelb-agent-cluster | while read -r line
-do
-    ipaddr=`echo $line | awk '{print $1}'`
-    name=`echo $line | awk '{print $2}'`
+docker run -d --name agent-1 --rm -v /proc/sys/net/ipv4/ip_nonlocal_bind:/var/proc/sys/net/ipv4/ip_nonlocal_bind \
+                              --env CONTROL_IP=10.192.0.11 \
+                              --env CONTROL_PORT=8000 \
+                              --env CLUSTER_NAME=cluster-external \
+                              --cap-add=NET_ADMIN \
+                              --cap-add=SYS_MODULE \
+                              --ip 10.192.0.11 --network kubeadm-dind-net quay.io/k8s-nativelb/nativelb-agent
 
-    # Create agent object.
-    cat << EOF | kubectl create -f - > /dev/null 2>&1
+docker run -d --name agent-2 --rm -v /proc/sys/net/ipv4/ip_nonlocal_bind:/var/proc/sys/net/ipv4/ip_nonlocal_bind \
+                              --env CONTROL_IP=10.192.0.12 \
+                              --env CONTROL_PORT=8000 \
+                              --env CLUSTER_NAME=cluster-external \
+                              --cap-add=NET_ADMIN \
+                              --cap-add=SYS_MODULE \
+                              --ip 10.192.0.12 --network kubeadm-dind-net quay.io/k8s-nativelb/nativelb-agent
+
+cat << EOF | kubectl create -f - > /dev/null 2>&1
 apiVersion: k8s.native-lb/v1
 kind: Agent
 metadata:
-  name: $name
+  name: agent-1
   namespace: nativelb
   labels:
-    k8s.nativelb.io/cluster: cluster-sample-cluster
+    k8s.nativelb.io/cluster: cluster-external
 spec:
-  hostName: $name
-  ipAddress: $ipaddr
+  hostName: agent-1
+  ipAddress: 10.192.0.11
   port: 8000
-  cluster: cluster-sample-cluster
+  cluster: cluster-external
 
 EOF
-done
+
+cat << EOF | kubectl create -f - > /dev/null 2>&1
+apiVersion: k8s.native-lb/v1
+kind: Agent
+metadata:
+  name: agent-2
+  namespace: nativelb
+  labels:
+    k8s.nativelb.io/cluster: cluster-external
+spec:
+  hostName: agent-2
+  ipAddress: 10.192.0.12
+  port: 8000
+  cluster: cluster-external
+
+EOF
