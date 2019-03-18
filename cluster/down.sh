@@ -16,4 +16,6 @@
 #
 
 docker rm -f registry
+docker rm -f agent-1 | true
+docker rm -f agent-2 | true
 ./cluster/dind-cluster/dind-cluster-v1.13.sh clean
