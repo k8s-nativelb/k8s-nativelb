@@ -22,7 +22,7 @@ func (a AgentController) CreateOrUpdateAgentFromPod(clusterName string, pod *cor
 
 	ownerRef := []metav1.OwnerReference{{Name: pod.Name, Kind: "Pod", UID: pod.UID, APIVersion: "v1"}}
 
-	agentSpec := v1.AgentSpec{IPAddress: pod.Status.PodIP, Cluster: clusterName, HostName: pod.Name, Port: int32(port)}
+	agentSpec := v1.AgentSpec{IPAddress: pod.Status.PodIP, Cluster: clusterName, HostName: pod.Name, Port: int32(port), Operational: true}
 	agentStatus := v1.AgentStatus{LastUpdate: metav1.Now(), ConnectionStatus: v1.AgentUnknowStatus}
 	agentObject := &v1.Agent{ObjectMeta: metav1.ObjectMeta{Name: pod.Name, Namespace: v1.ControllerNamespace, Labels: pod.Labels, OwnerReferences: ownerRef}, Spec: agentSpec, Status: agentStatus}
 	if agent == nil {

@@ -66,7 +66,7 @@ func main() {
 
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
-	go agent.StopAgent(stopChan)
+	go agent.WaitForStopAgent(stopChan)
 
 	err = agent.StartAgent()
 	if err != nil {
@@ -163,7 +163,7 @@ func (n *NativelbAgent) StartAgent() error {
 	return n.grpcServer.Serve(lis)
 }
 
-func (n *NativelbAgent) StopAgent(stopChan chan os.Signal) {
+func (n *NativelbAgent) WaitForStopAgent(stopChan chan os.Signal) {
 	<-stopChan
 	log.Log.V(2).Infof("Receive stop signal stop keepalived, loadbalancer process and grpc server")
 	n.grpcServer.Stop()
@@ -219,5 +219,9 @@ func (n *NativelbAgent) InitAgent(ctx context.Context, data *InitAgentData) (*In
 func (n *NativelbAgent) UpdateAgentSyncVersion(ctx context.Context, data *InitAgentData) (*Result, error) {
 	log.Log.Infof("get UpdateAgentSyncVersion status grpc call with initData: %v", *data)
 	n.agentStatus.SyncVersion = data.SyncVersion
+	return &Result{}, nil
+}
+
+func (n *NativelbAgent) StopAgent(ctx context.Context, cmd *Command) (*Result, error) {
 	return &Result{}, nil
 }

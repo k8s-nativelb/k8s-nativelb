@@ -11,6 +11,7 @@ service NativeLoadBalancerAgent {
     rpc InitAgent(InitAgentData) returns (InitAgentResult) {}
     rpc GetAgentStatus(Command) returns (AgentStatus) {}
     rpc GetServerStats(Command) returns (ServerStats) {}
+    rpc StopAgent(Command) returns (Result) {}
     rpc UpdateAgentSyncVersion(InitAgentData) returns (Result) {}
 }
 

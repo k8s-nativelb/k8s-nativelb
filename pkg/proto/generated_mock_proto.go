@@ -154,6 +154,26 @@ func (mr *MockNativeLoadBalancerAgentClientMockRecorder) GetServerStats(ctx, in 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerStats", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).GetServerStats), varargs...)
 }
 
+// StopAgent mocks base method
+func (m *MockNativeLoadBalancerAgentClient) StopAgent(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Result, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "StopAgent", varargs...)
+	ret0, _ := ret[0].(*Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StopAgent indicates an expected call of StopAgent
+func (mr *MockNativeLoadBalancerAgentClientMockRecorder) StopAgent(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopAgent", reflect.TypeOf((*MockNativeLoadBalancerAgentClient)(nil).StopAgent), varargs...)
+}
+
 // UpdateAgentSyncVersion mocks base method
 func (m *MockNativeLoadBalancerAgentClient) UpdateAgentSyncVersion(ctx context.Context, in *InitAgentData, opts ...grpc.CallOption) (*Result, error) {
 	m.ctrl.T.Helper()
@@ -285,6 +305,21 @@ func (m *MockNativeLoadBalancerAgentServer) GetServerStats(arg0 context.Context,
 func (mr *MockNativeLoadBalancerAgentServerMockRecorder) GetServerStats(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerStats", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).GetServerStats), arg0, arg1)
+}
+
+// StopAgent mocks base method
+func (m *MockNativeLoadBalancerAgentServer) StopAgent(arg0 context.Context, arg1 *Command) (*Result, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StopAgent", arg0, arg1)
+	ret0, _ := ret[0].(*Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StopAgent indicates an expected call of StopAgent
+func (mr *MockNativeLoadBalancerAgentServerMockRecorder) StopAgent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopAgent", reflect.TypeOf((*MockNativeLoadBalancerAgentServer)(nil).StopAgent), arg0, arg1)
 }
 
 // UpdateAgentSyncVersion mocks base method

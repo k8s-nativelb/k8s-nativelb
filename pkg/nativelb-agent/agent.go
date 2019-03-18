@@ -139,7 +139,7 @@ func (n *NativelbAgent) StartAgent() error {
 	return n.grpcServer.Serve(lis)
 }
 
-func (n *NativelbAgent) StopAgent(stopChan chan os.Signal) {
+func (n *NativelbAgent) WaitForStopAgent(stopChan chan os.Signal) {
 	<-stopChan
 	log.Log.Infof("Receive stop signal stop keepalived, loadbalancer process and grpc server")
 	n.grpcServer.Stop()

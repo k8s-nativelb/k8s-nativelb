@@ -24,10 +24,11 @@ import (
 
 // +k8s:openapi-gen=true
 type AgentSpec struct {
-	HostName  string `json:"hostName"`
-	IPAddress string `json:"ipAddress"`
-	Port      int32  `json:"port"`
-	Cluster   string `json:"cluster"`
+	HostName    string `json:"hostName"`
+	IPAddress   string `json:"ipAddress"`
+	Port        int32  `json:"port"`
+	Cluster     string `json:"cluster"`
+	Operational bool   `json:"operational"`
 }
 
 // +k8s:openapi-gen=true
@@ -39,6 +40,7 @@ type AgentStatus struct {
 	Uptime           time.Duration `json:"uptime,omitempty"`
 	Version          string        `json:"version,omitempty"`
 	ConnectionStatus string        `json:"connectionStatus,omitempty"`
+	OperationStatus  string        `json:"operationStatus,omitempty"`
 	LastUpdate       metav1.Time   `json:"lastUpdate,omitempty"`
 }
 

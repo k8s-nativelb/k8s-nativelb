@@ -41,6 +41,8 @@ spec:
               type: string
             ipAddress:
               type: string
+            operational:
+              type: boolean
             port:
               format: int32
               type: integer
@@ -49,6 +51,7 @@ spec:
           - ipAddress
           - port
           - cluster
+          - operational
           type: object
         status:
           properties:
@@ -63,6 +66,8 @@ spec:
             lbPid:
               format: int64
               type: integer
+            operationStatus:
+              type: string
             startTime:
               type: string
             time:

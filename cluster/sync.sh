@@ -69,6 +69,7 @@ spec:
   ipAddress: 10.192.0.11
   port: 8000
   cluster: cluster-external
+  operational: true
 
 EOF
 
@@ -85,5 +86,6 @@ spec:
   ipAddress: 10.192.0.12
   port: 8000
   cluster: cluster-external
+  operational: true
 
 EOF

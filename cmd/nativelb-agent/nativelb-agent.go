@@ -57,7 +57,7 @@ func main() {
 
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
-	go agent.StopAgent(stopChan)
+	go agent.WaitForStopAgent(stopChan)
 
 	err = agent.StartAgent()
 	if err != nil {

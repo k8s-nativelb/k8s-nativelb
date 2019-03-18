@@ -104,3 +104,7 @@ func (n *NativelbAgent) UpdateAgentSyncVersion(ctx context.Context, data *InitAg
 	n.agentStatus.SyncVersion = data.SyncVersion
 	return &Result{}, nil
 }
+
+func (n *NativelbAgent) StopAgent(ctx context.Context, cmd *Command) (*Result, error) {
+	return &Result{}, nil
+}
