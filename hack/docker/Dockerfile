@@ -16,7 +16,7 @@ RUN go get github.com/mattn/goveralls
 
 RUN go get sigs.k8s.io/kustomize
 WORKDIR /go/src/sigs.k8s.io/kustomize
-RUN git checkout tags/v2.0.1 && go install /go/src/sigs.k8s.io/kustomize
+RUN git checkout tags/v2.0.3 && go install /go/src/sigs.k8s.io/kustomize
 
 WORKDIR /
 
