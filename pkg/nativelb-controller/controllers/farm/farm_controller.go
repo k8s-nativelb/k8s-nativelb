@@ -51,6 +51,8 @@ func NewFarmController(nativelbClient kubecli.NativelbClient, serverController *
 	farmController := &FarmController{NativelbClient: nativelbClient, Controller: controllerInstance,
 		Reconcile: reconcileInstance, serverController: serverController, clusterController: clusterController}
 
+	//go farmController.reSyncFailFarms()
+
 	return farmController, nil
 }
 
@@ -91,7 +93,7 @@ type Reconcile struct {
 // and what is in the Agent.Spec
 // +kubebuilder:rbac:groups=k8s.native-lb,resources=farm,verbs=get;list;watch;create;update;patch;delete
 func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	instance, err := r.Farm().Get(request.NamespacedName.Name)
+	instance, err := r.Farm(request.NamespacedName.Namespace).Get(request.NamespacedName.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.

@@ -99,7 +99,7 @@ type Reconcile struct {
 // and what is in the Agent.Spec
 // +kubebuilder:rbac:groups=k8s.native-lb,resources=cluster,verbs=get;list;watch;create;update;patch;delete
 func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	instance, err := r.Cluster().Get(request.NamespacedName.Name)
+	instance, err := r.Cluster(v1.ControllerNamespace).Get(request.NamespacedName.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.

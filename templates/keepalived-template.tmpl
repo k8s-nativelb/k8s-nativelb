@@ -25,6 +25,8 @@ vrrp_instance {{ $k }} {
 #    check_udp_loadbalancer
   }
 
+  notify /templates/notify.sh
+
   track_interface {
       {{ $v.Iface }}
     }

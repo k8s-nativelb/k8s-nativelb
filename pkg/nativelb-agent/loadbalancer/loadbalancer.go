@@ -19,19 +19,31 @@ package loadbalancer
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+	"text/template"
+	"time"
+
 	"github.com/k8s-nativelb/pkg/log"
 	"github.com/k8s-nativelb/pkg/nativelb-agent/handler"
 	"github.com/k8s-nativelb/pkg/proto"
-	"os"
-	"strconv"
-	"text/template"
+)
+
+const (
+	haproxyStatusSocketFile = "/run/haproxy.sock"
 )
 
 type LoadBalancerInterface interface {
 	GetPid() int32
-	UpdateFarm(*proto.Data) error
-	RemoveFarm(*proto.Data) error
+	GetStatus() (*proto.HaproxyStatus, error)
+	GetStats() (*proto.ServersStats, error)
+	UpdateFarm(*proto.FarmSpec) error
+	RemoveFarm(*proto.FarmSpec) error
 	LoadInitData(*proto.InitAgentData) error
 	StartEngine() error
 	ReloadEngine() error
@@ -43,7 +55,7 @@ type LoadBalancer struct {
 	tmpl    *template.Template
 	handler handler.HandlerInterface
 	pid     string
-	farms   map[string]*proto.Data
+	servers map[string]*proto.Server
 }
 
 func NewLoadBalancer() (*LoadBalancer, error) {
@@ -53,7 +65,7 @@ func NewLoadBalancer() (*LoadBalancer, error) {
 		return nil, err
 	}
 
-	return &LoadBalancer{tmpl: tmpl, handler: handlerInstance, farms: map[string]*proto.Data{}}, nil
+	return &LoadBalancer{tmpl: tmpl, handler: handlerInstance, servers: map[string]*proto.Server{}}, nil
 }
 
 func (l *LoadBalancer) GetPid() int32 {
@@ -70,27 +82,43 @@ func (l *LoadBalancer) GetPid() int32 {
 	return int32(pid)
 }
 
-func (l *LoadBalancer) UpdateFarm(data *proto.Data) error {
-	l.farms[data.FarmName] = data
+func (l *LoadBalancer) UpdateFarm(farm *proto.FarmSpec) error {
+	for serverName, server := range farm.Servers {
+		if !proto.IsTCPServer(server) {
+			break
+		}
+
+		l.servers[fmt.Sprintf("%s-%s", farm.Namespace, serverName)] = server
+	}
 
 	return nil
 }
 
-func (l *LoadBalancer) RemoveFarm(data *proto.Data) error {
-	if _, ok := l.farms[data.FarmName]; !ok {
-		return fmt.Errorf("failed to find farm %s in the configuration", data.FarmName)
+func (l *LoadBalancer) RemoveFarm(farm *proto.FarmSpec) error {
+	for serverName, server := range farm.Servers {
+		if !proto.IsTCPServer(server) {
+			break
+		}
+		serverName = fmt.Sprintf("%s-%s", farm.Namespace, serverName)
+		if _, ok := l.servers[serverName]; !ok {
+			return fmt.Errorf("failed to find server %s farm %s in the configuration", serverName, farm.FarmName)
+		}
+
+		delete(l.servers, serverName)
 	}
 
-	delete(l.farms, data.FarmName)
 	return nil
 }
 
 func (l *LoadBalancer) LoadInitData(data *proto.InitAgentData) error {
-	l.farms = map[string]*proto.Data{}
+	l.servers = map[string]*proto.Server{}
 
-	for _, farm := range data.Data {
-		if proto.IsTCPFarm(farm) {
-			l.farms[farm.FarmName] = farm
+	for _, farm := range data.Farms {
+		for serverName, server := range farm.Servers {
+			serverName = fmt.Sprintf("%s-%s", farm.Namespace, serverName)
+			if proto.IsTCPServer(server) {
+				l.servers[serverName] = server
+			}
 		}
 	}
 
@@ -104,7 +132,7 @@ func (l *LoadBalancer) WriteConfig() error {
 	}
 	defer w.Close()
 
-	if l.tmpl.Execute(w, l.farms) != nil {
+	if l.tmpl.Execute(w, l.servers) != nil {
 		log.Log.Reason(err).Errorf("failed to execute template error %v", err)
 		return err
 	}
@@ -142,4 +170,101 @@ func (l *LoadBalancer) StopEngine() {
 		return
 	}
 	l.pid = ""
+}
+
+// RunCommand is the entrypoint to the client. Sends an arbitray command string to HAProxy.
+func (l *LoadBalancer) RunCommand(cmd string) (*bytes.Buffer, error) {
+	var err error
+	for retry := 0; retry <= 5; retry++ {
+		_, err = os.Stat(haproxyStatusSocketFile)
+		if err == nil {
+			break
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	timeout := time.Duration(30) * time.Second
+	conn, err := net.DialTimeout("unix", haproxyStatusSocketFile, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	result := bytes.NewBuffer(nil)
+
+	_, err = conn.Write([]byte(cmd + "\n"))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(result, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(result.String(), "Unknown command") {
+		return nil, fmt.Errorf("Unknown command: %s", cmd)
+	}
+
+	return result, nil
+}
+
+func (l *LoadBalancer) GetStatus() (*proto.HaproxyStatus, error) {
+	infoData, err := l.info()
+	if err != nil {
+		return nil, err
+	}
+	log.Log.Infof("%v", *infoData)
+
+	haproxyStatus := &proto.HaproxyStatus{
+		CompressBpsIn:              infoData.CompressBpsIn,
+		CompressBpsOut:             infoData.CompressBpsOut,
+		CompressBpsRateLim:         infoData.CompressBpsRateLim,
+		ConnRate:                   infoData.ConnRate,
+		ConnRateLimit:              infoData.ConnRateLimit,
+		CumConns:                   infoData.CumConns,
+		CumReq:                     infoData.CumReq,
+		CumSslConns:                infoData.CumSslConns,
+		CurrConns:                  infoData.CurrConns,
+		CurrSslConns:               infoData.CurrSslConns,
+		HardMaxconn:                infoData.HardMaxconn,
+		IdlePct:                    infoData.IdlePct,
+		Maxconn:                    infoData.Maxconn,
+		MaxConnRate:                infoData.MaxConnRate,
+		Maxpipes:                   infoData.Maxpipes,
+		MaxSessRate:                infoData.MaxSessRate,
+		Maxsock:                    infoData.Maxsock,
+		MaxSslConns:                infoData.MaxSslConns,
+		MaxSslRate:                 infoData.MaxSslRate,
+		MemMaxMB:                   infoData.MemMaxMB,
+		Nbproc:                     infoData.Nbproc,
+		Pid:                        infoData.Pid,
+		PipesFree:                  infoData.PipesFree,
+		PipesUsed:                  infoData.PipesUsed,
+		ProcessNum:                 infoData.ProcessNum,
+		ReleaseDate:                infoData.ReleaseDate,
+		RunQueue:                   infoData.RunQueue,
+		SessRate:                   infoData.SessRate,
+		SessRateLimit:              infoData.SessRateLimit,
+		SslBackendKeyRate:          infoData.SslBackendKeyRate,
+		SslBackendMaxKeyRate:       infoData.SslBackendMaxKeyRate,
+		SslCacheLookups:            infoData.SslCacheLookups,
+		SslCacheMisses:             infoData.SslCacheMisses,
+		SslFrontendKeyRate:         infoData.SslFrontendKeyRate,
+		SslFrontendMaxKeyRate:      infoData.SslFrontendMaxKeyRate,
+		SslFrontendSessionReusePct: infoData.SslFrontendSessionReusePct,
+		SslRate:                    infoData.SslRate,
+		SslRateLimit:               infoData.SslRateLimit,
+		Tasks:                      infoData.Tasks,
+		UlimitN:                    infoData.UlimitN,
+		Uptime:                     infoData.Uptime,
+		UptimeSec:                  infoData.UptimeSec,
+		Version:                    infoData.Version,
+	}
+
+	return haproxyStatus, nil
 }

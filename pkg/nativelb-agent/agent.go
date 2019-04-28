@@ -37,6 +37,7 @@ type NativelbAgent struct {
 	loadBalancerController    loadbalancer.LoadBalancerInterface
 	udpLoadBalancerController udp_loadbalancer.UdpLoadBalancerInterface
 	keepalivedController      keepalived.KeepalivedInterface
+	farms                     map[string]*FarmSpec
 	grpcServer                *grpc.Server
 }
 
@@ -139,7 +140,7 @@ func (n *NativelbAgent) StartAgent() error {
 	return n.grpcServer.Serve(lis)
 }
 
-func (n *NativelbAgent) StopAgent(stopChan chan os.Signal) {
+func (n *NativelbAgent) WaitForStopAgent(stopChan chan os.Signal) {
 	<-stopChan
 	log.Log.Infof("Receive stop signal stop keepalived, loadbalancer process and grpc server")
 	n.grpcServer.Stop()

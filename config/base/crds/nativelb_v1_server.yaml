@@ -28,105 +28,630 @@ spec:
           type: object
         spec:
           properties:
-            backendConnectionTimeout:
-              type: string
-            backendIdleTimeout:
-              type: string
+            backend:
+              type: object
             balance:
               type: string
             bind:
               type: string
-            clientIdleTimeout:
-              type: string
-            discovery:
-              properties:
-                backend:
-                  items:
-                    properties:
-                      host:
-                        type: string
-                      port:
-                        format: int32
-                        type: integer
-                      priority:
-                        format: int64
-                        type: integer
-                      weight:
-                        format: int64
-                        type: integer
-                    required:
-                    - host
-                    - port
-                    type: object
-                  type: array
-                kind:
-                  type: string
-              required:
-              - kind
-              - backend
-              type: object
             healthCheck:
               properties:
                 fails:
-                  format: int64
+                  format: int32
                   type: integer
                 interval:
                   type: string
                 kind:
                   type: string
                 passes:
-                  format: int64
+                  format: int32
                   type: integer
                 pingTimeoutDuration:
                   type: string
                 timeout:
                   type: string
               type: object
-            maxConnections:
-              format: int64
-              type: integer
             port:
               format: int32
               type: integer
             protocol:
               type: string
+            tcp:
+              properties:
+                backendConnectionTimeout:
+                  type: string
+                backendIdleTimeout:
+                  type: string
+                clientIdleTimeout:
+                  type: string
+                maxConnections:
+                  format: int32
+                  type: integer
+              required:
+              - maxConnections
+              - clientIdleTimeout
+              - backendIdleTimeout
+              - backendConnectionTimeout
+              type: object
             udp:
               properties:
                 maxRequests:
-                  format: int64
+                  format: int32
                   type: integer
                 maxResponses:
-                  format: int64
+                  format: int32
                   type: integer
               type: object
           required:
           - bind
           - port
           - protocol
+          - tcp
           - balance
-          - maxConnections
-          - clientIdleTimeout
-          - backendIdleTimeout
-          - backendConnectionTimeout
-          - discovery
+          - backend
           type: object
         status:
           properties:
-            activeConnections:
-              format: int64
-              type: integer
-            rxSecond:
-              format: int64
-              type: integer
-            rxTotal:
-              format: int64
-              type: integer
-            txSecond:
-              format: int64
-              type: integer
-            txTotal:
-              format: int64
-              type: integer
+            backEnd:
+              properties:
+                act:
+                  format: int64
+                  type: integer
+                bck:
+                  format: int64
+                  type: integer
+                bin:
+                  format: int64
+                  type: integer
+                bout:
+                  format: int64
+                  type: integer
+                checkStatus:
+                  description: UNK     -> unknown INI     -> initializing SOCKERR
+                    -> socket error L4OK    -> check passed on layer 4, no upper layers
+                    testing enabled L4TOUT  -> layer 1-4 timeout L4CON   -> layer
+                    1-4 connection problem, for example "Connection refused" (tcp
+                    rst) or "No route to host" (icmp) L6OK    -> check passed on layer
+                    6 L6TOUT  -> layer 6 (SSL) timeout L6RSP   -> layer 6 invalid
+                    response - protocol error L7OK    -> check passed on layer 7 L7OKC   ->
+                    check conditionally passed on layer 7, for example 404 with disable-on-404
+                    L7TOUT  -> layer 7 (HTTP/SMTP) timeout L7RSP   -> layer 7 invalid
+                    response - protocol error L7STS   -> layer 7 response error, for
+                    example HTTP 5xx
+                  type: string
+                chkdown:
+                  format: int64
+                  type: integer
+                chkfail:
+                  format: int64
+                  type: integer
+                cliAbrt:
+                  format: int64
+                  type: integer
+                compByp:
+                  format: int64
+                  type: integer
+                compIn:
+                  format: int64
+                  type: integer
+                compOut:
+                  format: int64
+                  type: integer
+                compRsp:
+                  format: int64
+                  type: integer
+                ctime:
+                  format: int64
+                  type: integer
+                downtime:
+                  format: int64
+                  type: integer
+                dreq:
+                  format: int64
+                  type: integer
+                dresp:
+                  format: int64
+                  type: integer
+                econ:
+                  format: int64
+                  type: integer
+                ereq:
+                  format: int64
+                  type: integer
+                eresp:
+                  format: int64
+                  type: integer
+                hanafail:
+                  format: int64
+                  type: integer
+                hrsp1xx:
+                  format: int64
+                  type: integer
+                hrsp2xx:
+                  format: int64
+                  type: integer
+                hrsp3xx:
+                  format: int64
+                  type: integer
+                hrsp4xx:
+                  format: int64
+                  type: integer
+                hrsp5xx:
+                  format: int64
+                  type: integer
+                hrspOther:
+                  format: int64
+                  type: integer
+                iid:
+                  format: int64
+                  type: integer
+                lastAgt:
+                  format: int64
+                  type: integer
+                lastChk:
+                  type: string
+                lastchg:
+                  format: int64
+                  type: integer
+                lastsess:
+                  format: int64
+                  type: integer
+                lbtot:
+                  format: int64
+                  type: integer
+                pid:
+                  format: int64
+                  type: integer
+                pxname:
+                  type: string
+                qcur:
+                  format: int64
+                  type: integer
+                qlimit:
+                  format: int64
+                  type: integer
+                qmax:
+                  format: int64
+                  type: integer
+                qtime:
+                  format: int64
+                  type: integer
+                rate:
+                  format: int64
+                  type: integer
+                rateLim:
+                  format: int64
+                  type: integer
+                rateMax:
+                  format: int64
+                  type: integer
+                reqRate:
+                  format: int64
+                  type: integer
+                reqTot:
+                  format: int64
+                  type: integer
+                rtime:
+                  format: int64
+                  type: integer
+                scur:
+                  format: int64
+                  type: integer
+                sid:
+                  format: int64
+                  type: integer
+                slim:
+                  format: int64
+                  type: integer
+                smax:
+                  format: int64
+                  type: integer
+                srvAbrt:
+                  format: int64
+                  type: integer
+                status:
+                  type: string
+                stot:
+                  format: int64
+                  type: integer
+                svname:
+                  type: string
+                throttle:
+                  format: int64
+                  type: integer
+                tracked:
+                  format: int64
+                  type: integer
+                ttime:
+                  format: int64
+                  type: integer
+                type:
+                  format: int64
+                  type: integer
+                weight:
+                  format: int64
+                  type: integer
+                wredis:
+                  format: int64
+                  type: integer
+                wretr:
+                  format: int64
+                  type: integer
+              type: object
+            backends:
+              items:
+                properties:
+                  act:
+                    format: int64
+                    type: integer
+                  bck:
+                    format: int64
+                    type: integer
+                  bin:
+                    format: int64
+                    type: integer
+                  bout:
+                    format: int64
+                    type: integer
+                  checkStatus:
+                    description: UNK     -> unknown INI     -> initializing SOCKERR
+                      -> socket error L4OK    -> check passed on layer 4, no upper
+                      layers testing enabled L4TOUT  -> layer 1-4 timeout L4CON   ->
+                      layer 1-4 connection problem, for example "Connection refused"
+                      (tcp rst) or "No route to host" (icmp) L6OK    -> check passed
+                      on layer 6 L6TOUT  -> layer 6 (SSL) timeout L6RSP   -> layer
+                      6 invalid response - protocol error L7OK    -> check passed
+                      on layer 7 L7OKC   -> check conditionally passed on layer 7,
+                      for example 404 with disable-on-404 L7TOUT  -> layer 7 (HTTP/SMTP)
+                      timeout L7RSP   -> layer 7 invalid response - protocol error
+                      L7STS   -> layer 7 response error, for example HTTP 5xx
+                    type: string
+                  chkdown:
+                    format: int64
+                    type: integer
+                  chkfail:
+                    format: int64
+                    type: integer
+                  cliAbrt:
+                    format: int64
+                    type: integer
+                  compByp:
+                    format: int64
+                    type: integer
+                  compIn:
+                    format: int64
+                    type: integer
+                  compOut:
+                    format: int64
+                    type: integer
+                  compRsp:
+                    format: int64
+                    type: integer
+                  ctime:
+                    format: int64
+                    type: integer
+                  downtime:
+                    format: int64
+                    type: integer
+                  dreq:
+                    format: int64
+                    type: integer
+                  dresp:
+                    format: int64
+                    type: integer
+                  econ:
+                    format: int64
+                    type: integer
+                  ereq:
+                    format: int64
+                    type: integer
+                  eresp:
+                    format: int64
+                    type: integer
+                  hanafail:
+                    format: int64
+                    type: integer
+                  hrsp1xx:
+                    format: int64
+                    type: integer
+                  hrsp2xx:
+                    format: int64
+                    type: integer
+                  hrsp3xx:
+                    format: int64
+                    type: integer
+                  hrsp4xx:
+                    format: int64
+                    type: integer
+                  hrsp5xx:
+                    format: int64
+                    type: integer
+                  hrspOther:
+                    format: int64
+                    type: integer
+                  iid:
+                    format: int64
+                    type: integer
+                  lastAgt:
+                    format: int64
+                    type: integer
+                  lastChk:
+                    type: string
+                  lastchg:
+                    format: int64
+                    type: integer
+                  lastsess:
+                    format: int64
+                    type: integer
+                  lbtot:
+                    format: int64
+                    type: integer
+                  pid:
+                    format: int64
+                    type: integer
+                  pxname:
+                    type: string
+                  qcur:
+                    format: int64
+                    type: integer
+                  qlimit:
+                    format: int64
+                    type: integer
+                  qmax:
+                    format: int64
+                    type: integer
+                  qtime:
+                    format: int64
+                    type: integer
+                  rate:
+                    format: int64
+                    type: integer
+                  rateLim:
+                    format: int64
+                    type: integer
+                  rateMax:
+                    format: int64
+                    type: integer
+                  reqRate:
+                    format: int64
+                    type: integer
+                  reqTot:
+                    format: int64
+                    type: integer
+                  rtime:
+                    format: int64
+                    type: integer
+                  scur:
+                    format: int64
+                    type: integer
+                  sid:
+                    format: int64
+                    type: integer
+                  slim:
+                    format: int64
+                    type: integer
+                  smax:
+                    format: int64
+                    type: integer
+                  srvAbrt:
+                    format: int64
+                    type: integer
+                  status:
+                    type: string
+                  stot:
+                    format: int64
+                    type: integer
+                  svname:
+                    type: string
+                  throttle:
+                    format: int64
+                    type: integer
+                  tracked:
+                    format: int64
+                    type: integer
+                  ttime:
+                    format: int64
+                    type: integer
+                  type:
+                    format: int64
+                    type: integer
+                  weight:
+                    format: int64
+                    type: integer
+                  wredis:
+                    format: int64
+                    type: integer
+                  wretr:
+                    format: int64
+                    type: integer
+                type: object
+              type: array
+            frontEnd:
+              properties:
+                act:
+                  format: int64
+                  type: integer
+                bck:
+                  format: int64
+                  type: integer
+                bin:
+                  format: int64
+                  type: integer
+                bout:
+                  format: int64
+                  type: integer
+                checkStatus:
+                  description: UNK     -> unknown INI     -> initializing SOCKERR
+                    -> socket error L4OK    -> check passed on layer 4, no upper layers
+                    testing enabled L4TOUT  -> layer 1-4 timeout L4CON   -> layer
+                    1-4 connection problem, for example "Connection refused" (tcp
+                    rst) or "No route to host" (icmp) L6OK    -> check passed on layer
+                    6 L6TOUT  -> layer 6 (SSL) timeout L6RSP   -> layer 6 invalid
+                    response - protocol error L7OK    -> check passed on layer 7 L7OKC   ->
+                    check conditionally passed on layer 7, for example 404 with disable-on-404
+                    L7TOUT  -> layer 7 (HTTP/SMTP) timeout L7RSP   -> layer 7 invalid
+                    response - protocol error L7STS   -> layer 7 response error, for
+                    example HTTP 5xx
+                  type: string
+                chkdown:
+                  format: int64
+                  type: integer
+                chkfail:
+                  format: int64
+                  type: integer
+                cliAbrt:
+                  format: int64
+                  type: integer
+                compByp:
+                  format: int64
+                  type: integer
+                compIn:
+                  format: int64
+                  type: integer
+                compOut:
+                  format: int64
+                  type: integer
+                compRsp:
+                  format: int64
+                  type: integer
+                ctime:
+                  format: int64
+                  type: integer
+                downtime:
+                  format: int64
+                  type: integer
+                dreq:
+                  format: int64
+                  type: integer
+                dresp:
+                  format: int64
+                  type: integer
+                econ:
+                  format: int64
+                  type: integer
+                ereq:
+                  format: int64
+                  type: integer
+                eresp:
+                  format: int64
+                  type: integer
+                hanafail:
+                  format: int64
+                  type: integer
+                hrsp1xx:
+                  format: int64
+                  type: integer
+                hrsp2xx:
+                  format: int64
+                  type: integer
+                hrsp3xx:
+                  format: int64
+                  type: integer
+                hrsp4xx:
+                  format: int64
+                  type: integer
+                hrsp5xx:
+                  format: int64
+                  type: integer
+                hrspOther:
+                  format: int64
+                  type: integer
+                iid:
+                  format: int64
+                  type: integer
+                lastAgt:
+                  format: int64
+                  type: integer
+                lastChk:
+                  type: string
+                lastchg:
+                  format: int64
+                  type: integer
+                lastsess:
+                  format: int64
+                  type: integer
+                lbtot:
+                  format: int64
+                  type: integer
+                pid:
+                  format: int64
+                  type: integer
+                pxname:
+                  type: string
+                qcur:
+                  format: int64
+                  type: integer
+                qlimit:
+                  format: int64
+                  type: integer
+                qmax:
+                  format: int64
+                  type: integer
+                qtime:
+                  format: int64
+                  type: integer
+                rate:
+                  format: int64
+                  type: integer
+                rateLim:
+                  format: int64
+                  type: integer
+                rateMax:
+                  format: int64
+                  type: integer
+                reqRate:
+                  format: int64
+                  type: integer
+                reqTot:
+                  format: int64
+                  type: integer
+                rtime:
+                  format: int64
+                  type: integer
+                scur:
+                  format: int64
+                  type: integer
+                sid:
+                  format: int64
+                  type: integer
+                slim:
+                  format: int64
+                  type: integer
+                smax:
+                  format: int64
+                  type: integer
+                srvAbrt:
+                  format: int64
+                  type: integer
+                status:
+                  type: string
+                stot:
+                  format: int64
+                  type: integer
+                svname:
+                  type: string
+                throttle:
+                  format: int64
+                  type: integer
+                tracked:
+                  format: int64
+                  type: integer
+                ttime:
+                  format: int64
+                  type: integer
+                type:
+                  format: int64
+                  type: integer
+                weight:
+                  format: int64
+                  type: integer
+                wredis:
+                  format: int64
+                  type: integer
+                wretr:
+                  format: int64
+                  type: integer
+              type: object
           type: object
       required:
       - spec

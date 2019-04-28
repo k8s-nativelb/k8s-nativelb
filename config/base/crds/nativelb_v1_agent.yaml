@@ -34,6 +34,8 @@ spec:
               type: string
             ipAddress:
               type: string
+            operational:
+              type: boolean
             port:
               format: int32
               type: integer
@@ -42,27 +44,212 @@ spec:
           - ipAddress
           - port
           - cluster
+          - operational
           type: object
         status:
           properties:
-            KeepAlivedPid:
-              format: int64
-              type: integer
             connectionStatus:
               type: string
+            haproxyPid:
+              format: int32
+              type: integer
+            keepalivedPid:
+              format: int32
+              type: integer
             lastUpdate:
               format: date-time
               type: string
-            lbPid:
-              format: int64
+            loadBalancer:
+              properties:
+                haproxy:
+                  properties:
+                    compressBpsIn:
+                      format: int64
+                      type: integer
+                    compressBpsOut:
+                      format: int64
+                      type: integer
+                    compressBpsRateLim:
+                      format: int64
+                      type: integer
+                    connRate:
+                      format: int64
+                      type: integer
+                    connRateLimit:
+                      format: int64
+                      type: integer
+                    cumConns:
+                      format: int64
+                      type: integer
+                    cumReq:
+                      format: int64
+                      type: integer
+                    cumSslConns:
+                      format: int64
+                      type: integer
+                    currConns:
+                      format: int64
+                      type: integer
+                    currSslConns:
+                      format: int64
+                      type: integer
+                    hardMaxconn:
+                      format: int64
+                      type: integer
+                    maxConnRate:
+                      format: int64
+                      type: integer
+                    maxSessRate:
+                      format: int64
+                      type: integer
+                    maxSslConns:
+                      format: int64
+                      type: integer
+                    maxSslRate:
+                      format: int64
+                      type: integer
+                    maxconn:
+                      format: int64
+                      type: integer
+                    maxpipes:
+                      format: int64
+                      type: integer
+                    maxsock:
+                      format: int64
+                      type: integer
+                    nbproc:
+                      format: int64
+                      type: integer
+                    pid:
+                      format: int64
+                      type: integer
+                    pipesFree:
+                      format: int64
+                      type: integer
+                    pipesUsed:
+                      format: int64
+                      type: integer
+                    releaseDate:
+                      type: string
+                    sessRate:
+                      format: int64
+                      type: integer
+                    sessRateLimit:
+                      format: int64
+                      type: integer
+                    sslBackendKeyRate:
+                      format: int64
+                      type: integer
+                    sslBackendMaxKeyRate:
+                      format: int64
+                      type: integer
+                    sslCacheLookups:
+                      format: int64
+                      type: integer
+                    sslCacheMisses:
+                      format: int64
+                      type: integer
+                    sslFrontendKeyRate:
+                      format: int64
+                      type: integer
+                    sslFrontendMaxKeyRate:
+                      format: int64
+                      type: integer
+                    sslRate:
+                      format: int64
+                      type: integer
+                    sslRateLimit:
+                      format: int64
+                      type: integer
+                    tasks:
+                      format: int64
+                      type: integer
+                    uptime:
+                      type: string
+                    version:
+                      type: string
+                  required:
+                  - version
+                  - releaseDate
+                  - nbproc
+                  - pid
+                  - uptime
+                  - maxsock
+                  - maxconn
+                  - hardMaxconn
+                  - currConns
+                  - cumConns
+                  - cumReq
+                  - maxSslConns
+                  - currSslConns
+                  - cumSslConns
+                  - maxpipes
+                  - pipesUsed
+                  - pipesFree
+                  - connRate
+                  - connRateLimit
+                  - maxConnRate
+                  - sessRate
+                  - sessRateLimit
+                  - maxSessRate
+                  - sslRate
+                  - sslRateLimit
+                  - maxSslRate
+                  - sslFrontendKeyRate
+                  - sslFrontendMaxKeyRate
+                  - sslBackendKeyRate
+                  - sslBackendMaxKeyRate
+                  - sslCacheLookups
+                  - sslCacheMisses
+                  - compressBpsIn
+                  - compressBpsOut
+                  - compressBpsRateLim
+                  - tasks
+                  type: object
+                keepalived:
+                  properties:
+                    instancesStatus:
+                      type: object
+                    pid:
+                      format: int64
+                      type: integer
+                  required:
+                  - pid
+                  - instancesStatus
+                  type: object
+                nginx:
+                  properties:
+                    Pid:
+                      format: int64
+                      type: integer
+                    activeConnections:
+                      format: int64
+                      type: integer
+                    reading:
+                      format: int64
+                      type: integer
+                    version:
+                      type: string
+                    waiting:
+                      format: int64
+                      type: integer
+                    writing:
+                      format: int64
+                      type: integer
+                  required:
+                  - Pid
+                  - activeConnections
+                  - reading
+                  - writing
+                  - waiting
+                  - version
+                  type: object
+              type: object
+            nginxPid:
+              format: int32
               type: integer
-            startTime:
+            operationStatus:
               type: string
-            time:
-              type: string
-            uptime:
-              format: int64
-              type: integer
             version:
               type: string
           type: object

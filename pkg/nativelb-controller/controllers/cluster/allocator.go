@@ -2,6 +2,7 @@ package cluster_controller
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"math/big"
 	"net"
 	"sync"
@@ -13,6 +14,7 @@ import (
 func (c *ClusterController) allocateIpAddrAndRouterID(farm *v1.Farm, cluster *v1.Cluster) error {
 	_, isExist := c.allocator[cluster.Name]
 	if !isExist {
+		c.RemoveDeletedFarms(cluster)
 		allocator, err := NewAllocator(cluster)
 		if err != nil {
 			return fmt.Errorf("failed to create allocator for cluster %s error %v", cluster.Name, err)
@@ -27,6 +29,7 @@ func (c *ClusterController) allocateIpAddrAndRouterID(farm *v1.Farm, cluster *v1
 func (c *ClusterController) releaseIpAddrAndRouterID(farm *v1.Farm, cluster *v1.Cluster) error {
 	_, isExist := c.allocator[cluster.Name]
 	if !isExist {
+		c.RemoveDeletedFarms(cluster)
 		allocator, err := NewAllocator(cluster)
 		if err != nil {
 			return fmt.Errorf("failed to create allocator for cluster %s error %v", cluster.Name, err)
@@ -37,6 +40,29 @@ func (c *ClusterController) releaseIpAddrAndRouterID(farm *v1.Farm, cluster *v1.
 
 	c.allocator[cluster.Name].Release(farm, cluster)
 	return nil
+}
+
+func (c *ClusterController) RemoveDeletedFarms(cluster *v1.Cluster) {
+	if cluster.Status.AllocatedNamespaces == nil {
+		return
+	}
+
+	deletedFarms := map[string]struct{}{}
+	for namespace, farms := range cluster.Status.AllocatedNamespaces {
+		for _, farm := range farms.Farms {
+			_, err := c.Reconcile.NativelbClient.Farm(namespace).Get(farm)
+			if err != nil && errors.IsNotFound(err) {
+				deletedFarms[fmt.Sprintf("%s-%s", namespace, farm)] = struct{}{}
+			}
+		}
+	}
+
+	for ip, farmName := range cluster.Status.AllocatedIps {
+		if _, exist := deletedFarms[farmName]; exist {
+			delete(cluster.Status.AllocatedIps, ip)
+		}
+	}
+
 }
 
 type Allocator struct {
@@ -77,7 +103,7 @@ func (a *Allocator) Allocate(farm *v1.Farm, clusterObject *v1.Cluster) error {
 	}
 
 	// Add to allocatedIps
-	clusterObject.Status.AllocatedIps[ipAddr] = farm.Name
+	clusterObject.Status.AllocatedIps[ipAddr] = farm.FarmName()
 
 	if clusterObject.Status.AllocatedNamespaces == nil {
 		clusterObject.Status.AllocatedNamespaces = make(map[string]*v1.AllocatedNamespace)
@@ -169,7 +195,7 @@ func (a *Allocator) findFreeRouterID(clusterObject *v1.Cluster) (int32, error) {
 
 func (a *Allocator) AllocatedFarm(farm *v1.Farm, clusterObject *v1.Cluster) (string, bool) {
 	for allocatedIp := range clusterObject.Status.AllocatedIps {
-		if clusterObject.Status.AllocatedIps[allocatedIp] == farm.Name {
+		if clusterObject.Status.AllocatedIps[allocatedIp] == farm.FarmName() {
 			return allocatedIp, true
 		}
 	}

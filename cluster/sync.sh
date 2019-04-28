@@ -46,7 +46,7 @@ docker run -d --name agent-1 --rm -v /proc/sys/net/ipv4/ip_nonlocal_bind:/var/pr
                               --env CLUSTER_NAME=cluster-external \
                               --cap-add=NET_ADMIN \
                               --cap-add=SYS_MODULE \
-                              --ip 10.192.0.11 --network kubeadm-dind-net quay.io/k8s-nativelb/nativelb-agent
+                              --ip 10.192.0.11 --network kubeadm-dind-net localhost:5000/k8s-nativelb/nativelb-agent
 
 docker run -d --name agent-2 --rm -v /proc/sys/net/ipv4/ip_nonlocal_bind:/var/proc/sys/net/ipv4/ip_nonlocal_bind \
                               --env CONTROL_IP=10.192.0.12 \
@@ -54,7 +54,7 @@ docker run -d --name agent-2 --rm -v /proc/sys/net/ipv4/ip_nonlocal_bind:/var/pr
                               --env CLUSTER_NAME=cluster-external \
                               --cap-add=NET_ADMIN \
                               --cap-add=SYS_MODULE \
-                              --ip 10.192.0.12 --network kubeadm-dind-net quay.io/k8s-nativelb/nativelb-agent
+                              --ip 10.192.0.12 --network kubeadm-dind-net localhost:5000/k8s-nativelb/nativelb-agent
 
 cat << EOF | kubectl create -f - > /dev/null 2>&1
 apiVersion: k8s.native-lb/v1
@@ -69,6 +69,7 @@ spec:
   ipAddress: 10.192.0.11
   port: 8000
   cluster: cluster-external
+  operational: true
 
 EOF
 
@@ -85,5 +86,6 @@ spec:
   ipAddress: 10.192.0.12
   port: 8000
   cluster: cluster-external
+  operational: true
 
 EOF

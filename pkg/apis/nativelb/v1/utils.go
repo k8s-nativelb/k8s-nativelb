@@ -56,9 +56,11 @@ const (
 	ServiceStatusLabelSyncing = "Syncing"
 	ServiceStatusLabelFailed  = "Failed"
 
-	AgentAliveStatus  = "Alive"
-	AgentDownStatus   = "Down"
-	AgentUnknowStatus = "Unknow"
+	AgentAliveStatus              = "Alive"
+	AgentDownStatus               = "Down"
+	AgentUnknowStatus             = "Unknow"
+	AgentOperetionalStatusActive  = "Active"
+	AgentOperetionalStatusDisable = "Disable"
 
 	NativeLBServerRef = "k8s.nativelb.server"
 	NativeLBFarmRef   = "k8s.nativelb.farm"
@@ -96,51 +98,39 @@ var (
 	GrpcTimeout = 30 * time.Second
 )
 
-func configServer(servicePort *corev1.ServicePort, isInternal bool, ipAddr string, discovery Discovery, serverName string, farmName string) *Server {
+func configServer(servicePort *corev1.ServicePort, isInternal bool, ipAddr string, serverName string, farmName string, backendsSpec map[string]*BackendSpec) *Server {
 	labelMap := make(map[string]string)
 	labelMap[NativeLBFarmRef] = farmName
-	var port int32
-	if isInternal {
-		port = servicePort.Port
-	} else {
-		port = servicePort.NodePort
-	}
 
-	serverSpec := ServerSpec{Bind: ipAddr,
-		Port:                     port,
-		Protocol:                 strings.ToLower(fmt.Sprintf("%s", servicePort.Protocol)),
-		BackendConnectionTimeout: BackendConnectionTimeout,
-		BackendIdleTimeout:       BackendIdleTimeout,
-		ClientIdleTimeout:        ClientIdleTimeout,
-		MaxConnections:           MaxConnections,
-		Balance:                  Balance,
-		UDP:                      DefaultUdpSpec(),
-		Discovery:                discovery, HealthCheck: DefaultHealthCheck()}
-
-	serverStatus := ServerStatus{ActiveConnections: 0, RxSecond: 0, RxTotal: 0, TxSecond: 0, TxTotal: 0}
-
-	return &Server{ObjectMeta: metav1.ObjectMeta{Labels: labelMap, Name: serverName, Namespace: ControllerNamespace}, Spec: serverSpec, Status: serverStatus}
-}
-
-func DefaultUdpSpec() UDP {
-	return UDP{MaxRequests: UDPMaxRequests, MaxResponses: UDPMaxResponses}
-}
-
-func DefaultHealthCheck() HealthCheck {
-	return HealthCheck{Kind: "ping",
+	healthCheck := &HealthCheck{Kind: "ping",
 		Fails:               HealthCheckFails,
 		Passes:              HealthCheckPasses,
 		Interval:            HealthCheckInterval,
 		PingTimeoutDuration: HealthCheckPingTimeoutDuration}
+
+	tcp := &TCP{BackendConnectionTimeout: BackendConnectionTimeout,
+		BackendIdleTimeout: BackendIdleTimeout,
+		ClientIdleTimeout:  ClientIdleTimeout,
+		MaxConnections:     MaxConnections}
+
+	udp := &UDP{MaxRequests: UDPMaxRequests, MaxResponses: UDPMaxResponses}
+
+	serverSpec := ServerSpec{Bind: ipAddr,
+		Port:        servicePort.Port,
+		Protocol:    strings.ToLower(fmt.Sprintf("%s", servicePort.Protocol)),
+		Balance:     Balance,
+		UDP:         udp,
+		TCP:         tcp,
+		HealthCheck: healthCheck,
+		Backends:    backendsSpec}
+
+	serverStatus := ServerStatus{}
+
+	return &Server{ObjectMeta: metav1.ObjectMeta{Labels: labelMap, Name: serverName, Namespace: ControllerNamespace}, Spec: serverSpec, Status: serverStatus}
 }
 
-func DefaultDiscovery(backendServers []BackendSpec) Discovery {
-	return Discovery{Kind: "exec", Backends: backendServers}
-}
-
-func CreateBackends(port *corev1.ServicePort, isInternal bool, backendServers []string, serverName string) ([]Backend, []BackendSpec) {
-	backends := make([]Backend, len(backendServers))
-	backendsSpec := make([]BackendSpec, len(backendServers))
+func CreateBackendsSpec(port *corev1.ServicePort, isInternal bool, endpoints []string) map[string]*BackendSpec {
+	backendsSpec := make(map[string]*BackendSpec)
 	var backendPort int32
 
 	if isInternal {
@@ -149,15 +139,15 @@ func CreateBackends(port *corev1.ServicePort, isInternal bool, backendServers []
 		backendPort = port.NodePort
 	}
 
-	for idx := range backendServers {
-		backendSpec := BackendSpec{Host: backendServers[idx], Port: backendPort, Priority: DefaultPriority, Weight: DefaultWeight}
-		backends[idx] = Backend{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{NativeLBServerRef: serverName}, Name: fmt.Sprintf("%s-%s", serverName, backendServers[idx]), Namespace: ControllerNamespace}, Spec: backendSpec, Status: DefaultBackendStatus()}
-		backendsSpec[idx] = backendSpec
+	for _, host := range endpoints {
+		backendName := fmt.Sprintf("%s-%s-%d", host, port.Protocol, backendPort)
+		backendSpec := &BackendSpec{Host: host, Port: backendPort, Priority: DefaultPriority, Weight: DefaultWeight}
+		backendsSpec[backendName] = backendSpec
 	}
 
-	return backends, backendsSpec
+	return backendsSpec
 }
 
 func DefaultBackendStatus() BackendStatus {
-	return BackendStatus{TxSecond: 0, RxSecond: 0, ActiveConnections: 0, Live: false, RefusedConnections: 0, Rx: 0, TotalConnections: 0, Tx: 0}
+	return BackendStatus{}
 }

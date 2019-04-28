@@ -43,7 +43,7 @@ func (c *ClusterController) CreateFarm(farm *v1.Farm, cluster *v1.Cluster) error
 		return err
 	}
 
-	cluster.Status.AllocatedIps[farm.Status.IpAdress] = farm.Name
+	cluster.Status.AllocatedIps[farm.Status.IpAdress] = farm.FarmName()
 	err = c.clusterConnection.CreateFarmOnCluster(farm, cluster)
 	if c.ifUpdateFailedUpdateFailStatus(err, cluster, "FarmCreatedFail", fmt.Sprintf("failed to create farm %s on cluster %s error %v", farm.Name, cluster.Name, err)) {
 		return err
@@ -96,7 +96,7 @@ func (c *ClusterController) GetClusterFromService(service *corev1.Service) (*v1.
 	var err error
 
 	if value, ok := service.ObjectMeta.Annotations[v1.NativeLBAnnotationKey]; ok {
-		clusterInstance, err = c.Cluster().Get(value)
+		clusterInstance, err = c.Cluster(v1.ControllerNamespace).Get(value)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return nil, fmt.Errorf("provider wasn't found for service %s", service.Name)
@@ -106,7 +106,7 @@ func (c *ClusterController) GetClusterFromService(service *corev1.Service) (*v1.
 	} else {
 		labelSelector := labels.Set{}
 		labelSelector[v1.NativeLBDefaultLabel] = "true"
-		clusterList, err := c.Cluster().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
+		clusterList, err := c.Cluster(v1.ControllerNamespace).List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +124,7 @@ func (c *ClusterController) GetClusterFromService(service *corev1.Service) (*v1.
 }
 
 // TODO: need to check this function maybe split it to smaller pieces
-func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.ServerData) error {
+func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []*v1.Server) error {
 	farmName := farm.Name
 	existServersMap := make(map[string]interface{})
 
@@ -133,7 +133,7 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 	labelSelector := labels.Set{}
 	labelSelector[v1.NativeLBFarmRef] = farmName
 
-	serversList, err := c.Server().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
+	serversList, err := c.Server(farm.Namespace).List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a list of servers related to %s farm error %v", farmName, err)
 		return err
@@ -144,12 +144,12 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 	}
 
 	for _, serverDataObject := range serverData {
-		serverName := serverDataObject.Server.Name
-		serverObject, err := c.Server().Get(serverName)
+		serverName := serverDataObject.Name
+		serverObject, err := c.Server(farm.Namespace).Get(serverName)
 		if err != nil && errors.IsNotFound(err) {
-			serverObject = serverDataObject.Server.DeepCopy()
+			serverObject = serverDataObject.DeepCopy()
 			serverObject.OwnerReferences = serverOwnerRef
-			serverObject, err = c.Server().Create(serverObject)
+			serverObject, err = c.Server(farm.Namespace).Create(serverObject)
 			if err != nil {
 				return err
 			}
@@ -157,69 +157,21 @@ func (c *ClusterController) UpdateServerData(farm *v1.Farm, serverData []v1.Serv
 			return err
 		} else {
 			serverObject.OwnerReferences = serverOwnerRef
-			serverObject.Spec = serverDataObject.Server.Spec
-			serverObject.Status = serverDataObject.Server.Status
+			serverObject.Spec = serverDataObject.Spec
+			serverObject.Status = serverDataObject.Status
 
-			serverObject, err = c.Server().Update(serverObject)
+			serverObject, err = c.Server(farm.Namespace).Update(serverObject)
 			if err != nil {
 				return err
 			}
 		}
 
 		farm.Spec.Servers[serverObject.Name] = &serverObject.Spec
-		ownerRef := []metav1.OwnerReference{{Name: serverObject.Name, APIVersion: v1.SchemeGroupVersion.Version, Kind: "Server", UID: serverObject.UID}}
 		delete(existServersMap, serverObject.Name)
-
-		existBackendsMap := make(map[string]interface{})
-
-		backendLabelSelector := labels.Set{}
-		backendLabelSelector[v1.NativeLBServerRef] = serverObject.Name
-
-		backendsList, err := c.Backend().List(&client.ListOptions{LabelSelector: backendLabelSelector.AsSelector()})
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get a list of backends related to %s server error %v", serverObject.Name, err)
-			return err
-		}
-
-		for _, backend := range backendsList.Items {
-			existBackendsMap[backend.Name] = struct{}{}
-		}
-
-		for _, backend := range serverDataObject.Backends {
-			backendObject, err := c.Backend().Get(backend.Name)
-			if err != nil && errors.IsNotFound(err) {
-				backendObject = backend.DeepCopy()
-				backendObject.OwnerReferences = ownerRef
-				backendObject, err = c.Backend().Create(backendObject)
-				if err != nil {
-					return err
-				}
-			} else if err != nil {
-				return err
-			} else {
-				backendObject.OwnerReferences = ownerRef
-				backendObject.Spec = backend.Spec
-				backendObject.Status = backend.Status
-				backendObject, err = c.Backend().Update(backendObject)
-				if err != nil {
-					return err
-				}
-			}
-
-			delete(existBackendsMap, backendObject.Name)
-		}
-
-		for deletedBackendName := range existBackendsMap {
-			err = c.Backend().Delete(deletedBackendName)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to delete backend %s error %v", deletedBackendName, err)
-				return err
-			}
-		}
 	}
 
 	for deletedServerName := range existServersMap {
-		err = c.Server().Delete(deletedServerName)
+		err = c.Server(farm.Namespace).Delete(deletedServerName)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to delete server %s error %v", deletedServerName, err)
 			return err
@@ -242,28 +194,33 @@ func (c *ClusterController) KeepAliveAgents() {
 }
 
 func (c *ClusterController) keepalive() {
-	agents, err := c.Agent().List(&client.ListOptions{})
+	clusters, err := c.Cluster(v1.ControllerNamespace).List(&client.ListOptions{})
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get agent list for keepalive check")
+		log.Log.Reason(err).Errorf("failed to get cluster list for keepalive check")
 	}
 
-	numOfAgents := len(agents.Items)
-	for idx, agent := range agents.Items {
-		cluster, err := c.Cluster().Get(agent.Spec.Cluster)
+	for _, cluster := range clusters.Items {
+		labelSelector := labels.Set{}
+		labelSelector[v1.ClusterLabel] = cluster.Name
+		agents, err := c.Agent(v1.ControllerNamespace).List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get cluster %s object for agent %s", agent.Spec.Cluster, agent.Name)
-			continue
-		}
-		c.clusterConnection.GetAgentStatus(&agent, idx+1, numOfAgents)
-
-		if cluster.Status.Agents == nil {
-			cluster.Status.Agents = make(map[string]*v1.Agent)
+			log.Log.Reason(err).Errorf("failed to get agent list for keepalive check on cluster %s", cluster.Name)
 		}
 
-		cluster.Status.Agents[agent.Name] = &agent
-		updatedCluster, err := c.updateLabels(cluster, v1.ClusterConnectionStatusSuccess)
-		if err == nil {
-			cluster = updatedCluster
+		numOfAgents := len(agents.Items)
+		for idx, agent := range agents.Items {
+			c.clusterConnection.GetAgentStatus(&agent, idx+1, numOfAgents)
+
+			if cluster.Status.Agents == nil {
+				cluster.Status.Agents = make(map[string]*v1.Agent)
+			}
+
+			cluster.Status.Agents[agent.Name] = &agent
+			_, err := c.updateClusterLabelsAnStatus(&cluster, v1.ClusterConnectionStatusSuccess)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to update cluster %s with agent %s status", cluster.Name, agent.Name)
+			}
 		}
+
 	}
 }

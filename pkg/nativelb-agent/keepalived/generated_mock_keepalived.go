@@ -62,7 +62,7 @@ func (mr *MockKeepalivedInterfaceMockRecorder) WriteConfig() *gomock.Call {
 }
 
 // NewFarmForInstance mocks base method
-func (m *MockKeepalivedInterface) NewFarmForInstance(arg0 *proto.Data) error {
+func (m *MockKeepalivedInterface) NewFarmForInstance(arg0 *proto.FarmSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewFarmForInstance", arg0)
 	ret0, _ := ret[0].(error)
@@ -76,7 +76,7 @@ func (mr *MockKeepalivedInterfaceMockRecorder) NewFarmForInstance(arg0 interface
 }
 
 // DeleteFarmInInstance mocks base method
-func (m *MockKeepalivedInterface) DeleteFarmInInstance(arg0 *proto.Data) error {
+func (m *MockKeepalivedInterface) DeleteFarmInInstance(arg0 *proto.FarmSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteFarmInInstance", arg0)
 	ret0, _ := ret[0].(error)
@@ -153,4 +153,19 @@ func (m *MockKeepalivedInterface) StopEngine() {
 func (mr *MockKeepalivedInterfaceMockRecorder) StopEngine() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopEngine", reflect.TypeOf((*MockKeepalivedInterface)(nil).StopEngine))
+}
+
+// GetStatus mocks base method
+func (m *MockKeepalivedInterface) GetStatus() (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStatus")
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStatus indicates an expected call of GetStatus
+func (mr *MockKeepalivedInterfaceMockRecorder) GetStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatus", reflect.TypeOf((*MockKeepalivedInterface)(nil).GetStatus))
 }

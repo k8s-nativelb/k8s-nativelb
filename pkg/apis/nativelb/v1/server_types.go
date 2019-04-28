@@ -26,39 +26,28 @@ import (
 // ServerSpec defines the desired state of Server
 // +k8s:openapi-gen=true
 type ServerSpec struct {
-	Bind                     string      `json:"bind"`
-	Port                     int32       `json:"port"`
-	Protocol                 string      `json:"protocol"`
-	UDP                      UDP         `json:"udp,omitempty"`
-	Balance                  string      `json:"balance"`
-	MaxConnections           int         `json:"maxConnections"`
-	ClientIdleTimeout        string      `json:"clientIdleTimeout"`
-	BackendIdleTimeout       string      `json:"backendIdleTimeout"`
-	BackendConnectionTimeout string      `json:"backendConnectionTimeout"`
-	Discovery                Discovery   `json:"discovery"`
-	HealthCheck              HealthCheck `json:"healthCheck,omitempty"`
+	Bind        string                  `json:"bind"`
+	Port        int32                   `json:"port"`
+	Protocol    string                  `json:"protocol"`
+	UDP         *UDP                    `json:"udp,omitempty"`
+	TCP         *TCP                    `json:"tcp"`
+	Balance     string                  `json:"balance"`
+	Backends    map[string]*BackendSpec `json:"backend"`
+	HealthCheck *HealthCheck            `json:"healthCheck,omitempty"`
 }
 
 // ServerStatus defines the observed state of Server
 // +k8s:openapi-gen=true
 type ServerStatus struct {
-	ActiveConnections int `json:"activeConnections,omitempty"`
-	RxTotal           int `json:"rxTotal,omitempty"`
-	TxTotal           int `json:"txTotal,omitempty"`
-	RxSecond          int `json:"rxSecond,omitempty"`
-	TxSecond          int `json:"txSecond,omitempty"`
-}
-
-// +k8s:openapi-gen=true
-type Discovery struct {
-	Kind     string        `json:"kind"`
-	Backends []BackendSpec `json:"backend"`
+	Frontend *HaproxyStatus   `json:"frontEnd,omitempty"`
+	Backend  *HaproxyStatus   `json:"backEnd,omitempty"`
+	Backends []*HaproxyStatus `json:"backends,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 type HealthCheck struct {
-	Fails               int    `json:"fails,omitempty"`
-	Passes              int    `json:"passes,omitempty"`
+	Fails               int32  `json:"fails,omitempty"`
+	Passes              int32  `json:"passes,omitempty"`
 	Interval            string `json:"interval,omitempty"`
 	Timeout             string `json:"timeout,omitempty"`
 	Kind                string `json:"kind,omitempty"`
@@ -67,8 +56,112 @@ type HealthCheck struct {
 
 // +k8s:openapi-gen=true
 type UDP struct {
-	MaxRequests  int `json:"maxRequests,omitempty"`
-	MaxResponses int `json:"maxResponses,omitempty"`
+	MaxRequests  int32 `json:"maxRequests,omitempty"`
+	MaxResponses int32 `json:"maxResponses,omitempty"`
+}
+
+type TCP struct {
+	MaxConnections           int32  `json:"maxConnections"`
+	ClientIdleTimeout        string `json:"clientIdleTimeout"`
+	BackendIdleTimeout       string `json:"backendIdleTimeout"`
+	BackendConnectionTimeout string `json:"backendConnectionTimeout"`
+}
+
+// +k8s:openapi-gen=true
+type BackendSpec struct {
+	Host     string `json:"host"`
+	Port     int32  `json:"port"`
+	Priority int32  `json:"priority,omitempty"`
+	Weight   int32  `json:"weight,omitempty"`
+}
+
+// backendStatus defines the observed state of backend
+// +k8s:openapi-gen=true
+type BackendStatus struct {
+	HaproxyStatus
+}
+
+type HaproxyStatus struct {
+	PxName   string `json:"pxname,omitempty"`
+	SvName   string `json:"svname,omitempty"`
+	Qcur     uint64 `json:"qcur,omitempty"`
+	Qmax     uint64 `json:"qmax,omitempty"`
+	Scur     uint64 `json:"scur,omitempty"`
+	Smax     uint64 `json:"smax,omitempty"`
+	Slim     uint64 `json:"slim,omitempty"`
+	Stot     uint64 `json:"stot,omitempty"`
+	Bin      uint64 `json:"bin,omitempty"`
+	Bout     uint64 `json:"bout,omitempty"`
+	Dreq     uint64 `json:"dreq,omitempty"`
+	Dresp    uint64 `json:"dresp,omitempty"`
+	Ereq     uint64 `json:"ereq,omitempty"`
+	Econ     uint64 `json:"econ,omitempty"`
+	Eresp    uint64 `json:"eresp,omitempty"`
+	Wretr    uint64 `json:"wretr,omitempty"`
+	Wredis   uint64 `json:"wredis,omitempty"`
+	Status   string `json:"status,omitempty"`
+	Weight   uint64 `json:"weight,omitempty"`
+	Act      uint64 `json:"act,omitempty"`
+	Bck      uint64 `json:"bck,omitempty"`
+	ChkFail  uint64 `json:"chkfail,omitempty"`
+	ChkDown  uint64 `json:"chkdown,omitempty"`
+	Lastchg  uint64 `json:"lastchg,omitempty"`
+	Downtime uint64 `json:"downtime,omitempty"`
+	Qlimit   uint64 `json:"qlimit,omitempty"`
+	Pid      uint64 `json:"pid,omitempty"`
+	Iid      uint64 `json:"iid,omitempty"`
+	Sid      uint64 `json:"sid,omitempty"`
+	Throttle uint64 `json:"throttle,omitempty"`
+	Lbtot    uint64 `json:"lbtot,omitempty"`
+	Tracked  uint64 `json:"tracked,omitempty"`
+	Type     uint64 `json:"type,omitempty"`
+	Rate     uint64 `json:"rate,omitempty"`
+	RateLim  uint64 `json:"rateLim,omitempty"`
+	RateMax  uint64 `json:"rateMax,omitempty"`
+
+	//UNK     -> unknown
+	//INI     -> initializing
+	//SOCKERR -> socket error
+	//L4OK    -> check passed on layer 4, no upper layers testing enabled
+	//L4TOUT  -> layer 1-4 timeout
+	//L4CON   -> layer 1-4 connection problem, for example
+	//"Connection refused" (tcp rst) or "No route to host" (icmp)
+	//L6OK    -> check passed on layer 6
+	//L6TOUT  -> layer 6 (SSL) timeout
+	//L6RSP   -> layer 6 invalid response - protocol error
+	//L7OK    -> check passed on layer 7
+	//L7OKC   -> check conditionally passed on layer 7, for example 404 with
+	//disable-on-404
+	//L7TOUT  -> layer 7 (HTTP/SMTP) timeout
+	//L7RSP   -> layer 7 invalid response - protocol error
+	//L7STS   -> layer 7 response error, for example HTTP 5xx
+	CheckStatus string `json:"checkStatus,omitempty"`
+
+	CheckCode     uint64 `json:"check_code,omitempty"`
+	CheckDuration uint64 `json:"check_duration,omitempty"`
+	Hrsp1xx       uint64 `json:"hrsp1xx,omitempty"`
+	Hrsp2xx       uint64 `json:"hrsp2xx,omitempty"`
+	Hrsp3xx       uint64 `json:"hrsp3xx,omitempty"`
+	Hrsp4xx       uint64 `json:"hrsp4xx,omitempty"`
+	Hrsp5xx       uint64 `json:"hrsp5xx,omitempty"`
+	HrspOther     uint64 `json:"hrspOther,omitempty"`
+	Hanafail      uint64 `json:"hanafail,omitempty"`
+	ReqRate       uint64 `json:"reqRate,omitempty"`
+	ReqRateMax    uint64 `json:"reqRate_max,omitempty"`
+	ReqTot        uint64 `json:"reqTot,omitempty"`
+	CliAbrt       uint64 `json:"cliAbrt,omitempty"`
+	SrvAbrt       uint64 `json:"srvAbrt,omitempty"`
+	CompIn        uint64 `json:"compIn,omitempty"`
+	CompOut       uint64 `json:"compOut,omitempty"`
+	CompByp       uint64 `json:"compByp,omitempty"`
+	CompRsp       uint64 `json:"compRsp,omitempty"`
+	LastSess      int64  `json:"lastsess,omitempty"`
+	LastChk       string `json:"lastChk,omitempty"`
+	LastAgt       uint64 `json:"lastAgt,omitempty"`
+	Qtime         uint64 `json:"qtime,omitempty"`
+	Ctime         uint64 `json:"ctime,omitempty"`
+	Rtime         uint64 `json:"rtime,omitempty"`
+	Ttime         uint64 `json:"ttime,omitempty"`
 }
 
 // +genclient

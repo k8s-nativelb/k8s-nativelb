@@ -24,7 +24,7 @@ type TestClient struct {
 
 func NewTestClient() (*TestClient, error) {
 	t := &envtest.Environment{
-		UseExistingCluster:true,
+		UseExistingCluster: true,
 	}
 
 	err := nativelb.SchemeBuilder.AddToScheme(scheme.Scheme)
@@ -48,7 +48,7 @@ func NewTestClient() (*TestClient, error) {
 		return nil, err
 	}
 
-	nativelbClient, err := kubecli.GetNativelbClient(cfg,c)
+	nativelbClient, err := kubecli.GetNativelbClient(cfg, c)
 	if err != nil {
 		return nil, err
 	}
@@ -69,20 +69,20 @@ func (t *TestClient) CleanNativelbNamespace() {
 }
 
 func (t *TestClient) deleteFarms() error {
-	farms, err := t.NativelbClient.Farm().List(&client.ListOptions{})
+	farms, err := t.NativelbClient.Farm("").List(&client.ListOptions{})
 	if err != nil {
 		return err
 	}
 
 	for _, farm := range farms.Items {
-		err = t.NativelbClient.Farm().Delete(farm.Name)
+		err = t.NativelbClient.Farm(farm.Namespace).Delete(farm.Name)
 		if err != nil {
 			return err
 		}
 	}
 
 	for i := 0; i < 10; i++ {
-		farms, err = t.NativelbClient.Farm().List(&client.ListOptions{})
+		farms, err = t.NativelbClient.Farm("").List(&client.ListOptions{})
 		if err != nil {
 			return err
 		}

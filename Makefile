@@ -42,19 +42,19 @@ rbac:
 
 # Generate code
 generate:
-	mockgen -source pkg/proto/proto.pb.go -package=proto -destination=pkg/proto/generated_mock_proto.go
-	go generate ./pkg/... ./cmd/...
 	protoc -I. proto/native-lb.proto --go_out=plugins=grpc:.
 	cp proto/native-lb.pb.go pkg/proto/proto.pb.go
+	mockgen -source pkg/proto/proto.pb.go -package=proto -destination=pkg/proto/generated_mock_proto.go
+	go generate ./pkg/... ./cmd/...
 	./hack/crd.sh
 	kustomize build config/default/release/ > config/release/k8s-nativelb.yaml
 	kustomize build config/default/test/ > config/test/k8s-nativelb.yaml
 
 vet:
-	go vet ./pkg/... ./cmd/...
+	go vet ./pkg/... ./cmd/... ./tests/...
 
 fmt:
-	go fmt ./pkg/... ./cmd/...
+	go fmt ./pkg/... ./cmd/... ./tests/...
 
 # Run tests
 test:

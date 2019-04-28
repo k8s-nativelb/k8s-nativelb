@@ -131,7 +131,7 @@ func (r *ReconcileDaemonset) Reconcile(request reconcile.Request) (reconcile.Res
 		log.Log.Reason(err).Errorf("failed to find pods for daemonset %s error %v", daemonsetInstance.Name, err)
 	}
 
-	agents, err := r.Agent().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
+	agents, err := r.Agent(v1.ControllerNamespace).List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to find pods for daemonset %s error %v", daemonsetInstance.Name, err)
 	}

@@ -29,8 +29,10 @@ import (
 )
 
 type UdpLoadBalancerInterface interface {
-	UpdateFarm(*proto.Data) error
-	RemoveFarm(*proto.Data) error
+	GetPid() int32
+	GetStatus() (*proto.NginxStatus, error)
+	UpdateFarm(*proto.FarmSpec) error
+	RemoveFarm(*proto.FarmSpec) error
 	LoadInitData(*proto.InitAgentData) error
 	StartEngine() error
 	ReloadEngine() error
@@ -42,7 +44,7 @@ type UdpLoadBalancer struct {
 	tmpl    *template.Template
 	handler handler.HandlerInterface
 	pid     string
-	farms   map[string]*proto.Data
+	servers map[string]*proto.Server
 }
 
 func NewUdpLoadBalancer() (*UdpLoadBalancer, error) {
@@ -52,7 +54,7 @@ func NewUdpLoadBalancer() (*UdpLoadBalancer, error) {
 		return nil, err
 	}
 
-	return &UdpLoadBalancer{tmpl: tmpl, handler: handlerInstance, farms: map[string]*proto.Data{}}, nil
+	return &UdpLoadBalancer{tmpl: tmpl, handler: handlerInstance, servers: map[string]*proto.Server{}}, nil
 }
 
 func (l *UdpLoadBalancer) GetPid() int32 {
@@ -69,27 +71,43 @@ func (l *UdpLoadBalancer) GetPid() int32 {
 	return int32(pid)
 }
 
-func (l *UdpLoadBalancer) UpdateFarm(data *proto.Data) error {
-	l.farms[data.FarmName] = data
+func (l *UdpLoadBalancer) UpdateFarm(farm *proto.FarmSpec) error {
+	for serverName, server := range farm.Servers {
+		if proto.IsTCPServer(server) {
+			break
+		}
+
+		l.servers[fmt.Sprintf("%s-%s", farm.Namespace, serverName)] = server
+	}
 
 	return nil
 }
 
-func (l *UdpLoadBalancer) RemoveFarm(data *proto.Data) error {
-	if _, ok := l.farms[data.FarmName]; !ok {
-		return fmt.Errorf("failed to find farm %s in the configuration", data.FarmName)
+func (l *UdpLoadBalancer) RemoveFarm(farm *proto.FarmSpec) error {
+	for serverName, server := range farm.Servers {
+		if proto.IsTCPServer(server) {
+			break
+		}
+		serverName = fmt.Sprintf("%s-%s", farm.Namespace, serverName)
+		if _, ok := l.servers[serverName]; !ok {
+			return fmt.Errorf("failed to find server %s farm %s in the configuration", serverName, farm.FarmName)
+		}
+
+		delete(l.servers, serverName)
 	}
 
-	delete(l.farms, data.FarmName)
 	return nil
 }
 
 func (l *UdpLoadBalancer) LoadInitData(data *proto.InitAgentData) error {
-	l.farms = map[string]*proto.Data{}
+	l.servers = map[string]*proto.Server{}
 
-	for _, farm := range data.Data {
-		if !proto.IsTCPFarm(farm) {
-			l.farms[farm.FarmName] = farm
+	for _, farm := range data.Farms {
+		for serverName, server := range farm.Servers {
+			serverName = fmt.Sprintf("%s-%s", farm.Namespace, serverName)
+			if !proto.IsTCPServer(server) {
+				l.servers[serverName] = server
+			}
 		}
 	}
 
@@ -103,7 +121,7 @@ func (l *UdpLoadBalancer) WriteConfig() error {
 	}
 	defer w.Close()
 
-	if l.tmpl.Execute(w, l.farms) != nil {
+	if l.tmpl.Execute(w, l.servers) != nil {
 		log.Log.Reason(err).Errorf("failed to execute template error %v", err)
 		return err
 	}
@@ -141,4 +159,8 @@ func (l *UdpLoadBalancer) StopEngine() {
 		return
 	}
 	l.pid = ""
+}
+
+func (l *UdpLoadBalancer) GetStatus() (*proto.NginxStatus, error) {
+	return l.info()
 }
