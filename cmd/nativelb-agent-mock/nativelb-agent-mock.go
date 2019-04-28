@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/golang/protobuf/ptypes/duration"
 	. "github.com/k8s-nativelb/pkg/proto"
 
 	"github.com/vishvananda/netlink"
@@ -170,21 +169,21 @@ func (n *NativelbAgent) WaitForStopAgent(stopChan chan os.Signal) {
 	//TODO: Stop the processes and cleanup the ip configuration
 }
 
-func (n *NativelbAgent) CreateServers(ctx context.Context, data *Data) (*Result, error) {
+func (n *NativelbAgent) CreateServers(ctx context.Context, data *FarmSpec) (*Result, error) {
 	log.Log.Infof("CreateServers grpc call with data: %v", *data)
 	if n.agentStatus.Status != AgentSyncedStatus {
 		return nil, fmt.Errorf("failed to create servers for farm %s because the agent is not in synced status", data.FarmName)
 	}
 	return &Result{}, nil
 }
-func (n *NativelbAgent) UpdateServers(ctx context.Context, data *Data) (*Result, error) {
+func (n *NativelbAgent) UpdateServers(ctx context.Context, data *FarmSpec) (*Result, error) {
 	log.Log.Infof("UpdateServers grpc call with data: %v", *data)
 	if n.agentStatus.Status != AgentSyncedStatus {
 		return nil, fmt.Errorf("failed to update servers for farm %s because the agent is not in synced status", data.FarmName)
 	}
 	return &Result{}, nil
 }
-func (n *NativelbAgent) DeleteServers(ctx context.Context, data *Data) (*Result, error) {
+func (n *NativelbAgent) DeleteServers(ctx context.Context, data *FarmSpec) (*Result, error) {
 	log.Log.Infof("DeleteServers grpc call with data: %v", *data)
 	if n.agentStatus.Status != AgentSyncedStatus {
 		return nil, fmt.Errorf("failed to delete servers for farm %s because the agent is not in synced status", data.FarmName)
@@ -195,12 +194,12 @@ func (n *NativelbAgent) GetAgentStatus(ctx context.Context, cmd *Command) (*Agen
 	log.Log.Infof("GetAgentStatus grpc call with command: %v", cmd)
 	return n.agentStatus, nil
 }
-func (n *NativelbAgent) GetServerStats(ctx context.Context, cmd *Command) (*ServerStats, error) {
-	log.Log.Infof("GetServerStats grpc call with command: %v", cmd)
+func (n *NativelbAgent) GetServersStats(ctx context.Context, cmd *Command) (*ServersStats, error) {
+	log.Log.Infof("GetFarmsStats grpc call with command: %v", cmd)
 	if n.agentStatus.Status != AgentSyncedStatus {
 		return nil, fmt.Errorf("failed to get server stats because the agent is not in synced status")
 	}
-	return &ServerStats{}, nil
+	return &ServersStats{}, nil
 }
 
 func (n *NativelbAgent) InitAgent(ctx context.Context, data *InitAgentData) (*InitAgentResult, error) {
@@ -210,8 +209,8 @@ func (n *NativelbAgent) InitAgent(ctx context.Context, data *InitAgentData) (*In
 
 	//TODO: remove this after the agent start a real nginx process
 	n.agentStatus.KeepAlivedPid = 1
-	n.agentStatus.LBPid = 1
-	n.agentStatus.Uptime = &duration.Duration{Seconds: 1}
+	n.agentStatus.NginxPid = 1
+	n.agentStatus.HaproxyPid = 1
 
 	return &InitAgentResult{Agent: n.agent, AgentStatus: n.agentStatus}, nil
 }

@@ -37,8 +37,8 @@ type FarmSpec struct {
 
 // FarmStatus defines the observed state of Farm
 type FarmStatus struct {
-	IpAdress string   `json:"ipAdress,omitempty"`
-	NodeList []string `json:"nodeList,omitempty"`
+	IpAdress  string   `json:"ipAdress,omitempty"`
+	Endpoints []string `json:"endpoints,omitempty"`
 }
 
 // +genclient
@@ -68,37 +68,33 @@ func init() {
 }
 
 func (f *Farm) FarmName() string {
-	return fmt.Sprintf("%s-%s-%s", f.Spec.Cluster, f.Namespace, f.Name)
+	return fmt.Sprintf("%s-%s", f.Namespace, f.Name)
 }
 
 // +k8s:openapi-gen=true
 type ServerData struct {
-	Server   *Server
-	Backends []Backend
+	Server *Server
 }
 
-func (f *Farm) UpdateServers(isInternal bool) []ServerData {
-	servers := make([]ServerData, len(f.Spec.Ports))
+func (f *Farm) UpdateServers(isInternal bool) []*Server {
+	servers := make([]*Server, len(f.Spec.Ports))
 
-	nodeList := f.Status.NodeList
+	endpoints := f.Status.Endpoints
 	f.Spec.Servers = make(map[string]*ServerSpec)
 
 	for idx, port := range f.Spec.Ports {
 		portName := ""
 
 		if port.Name != "" {
-			portName = port.Name
+			portName = strings.ToLower(fmt.Sprintf("%s-%s", port.Protocol, port.Name))
 		} else {
 			portName = strings.ToLower(fmt.Sprintf("%s-%d", port.Protocol, port.Port))
 		}
 
-		serverName := fmt.Sprintf("%s-%s", f.Name, portName)
-		backends, backendsSpec := CreateBackends(&port, isInternal, nodeList, serverName)
-		discovery := DefaultDiscovery(backendsSpec)
+		backendsSpec := CreateBackendsSpec(&port, isInternal, endpoints)
 
-		server := configServer(&port, isInternal, f.Status.IpAdress, discovery, serverName, f.Name)
-
-		servers[idx] = ServerData{Server: server, Backends: backends}
+		server := configServer(&port, isInternal, f.Status.IpAdress, fmt.Sprintf("%s-%s", f.Name, portName), f.Name, backendsSpec)
+		servers[idx] = server
 	}
 
 	return servers

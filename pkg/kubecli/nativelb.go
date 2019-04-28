@@ -28,11 +28,10 @@ import (
 )
 
 type NativelbClient interface {
-	Cluster() ClusterInterface
-	Farm() FarmInterface
-	Backend() BackendInterface
-	Server() ServerInterface
-	Agent() AgentInterface
+	Cluster(string) ClusterInterface
+	Farm(string) FarmInterface
+	Server(string) ServerInterface
+	Agent(string) AgentInterface
 	GetManager() manager.Manager
 	GetClient() client.Client
 	GetScheme() *runtime.Scheme
@@ -79,14 +78,6 @@ type FarmInterface interface {
 	List(opts *client.ListOptions) (*v1.FarmList, error)
 	Create(instance *v1.Farm) (*v1.Farm, error)
 	Update(*v1.Farm) (*v1.Farm, error)
-	Delete(name string) error
-}
-
-type BackendInterface interface {
-	Get(name string) (*v1.Backend, error)
-	List(opts *client.ListOptions) (*v1.BackendList, error)
-	Create(instance *v1.Backend) (*v1.Backend, error)
-	Update(*v1.Backend) (*v1.Backend, error)
 	Delete(name string) error
 }
 

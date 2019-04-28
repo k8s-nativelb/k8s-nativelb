@@ -9,7 +9,7 @@ global
     daemon
     #debug
     #quiet
-    stats socket /run/haproxy.sock mode 660 level admin
+    stats socket /run/haproxy.sock mode 777 level admin
     stats timeout 2m # Wait up to 2 minutes for input
 
 defaults
@@ -29,13 +29,11 @@ defaults
 
 
 
-{{range $farmKey,$farmValue := .}}
-{{ range $idx,$server := $farmValue.Servers }}
-listen {{$farmValue.FarmName}}-{{$server.Bind}}-{{$server.Port}}
+{{range $serverKey,$server := .}}
+listen {{$serverKey}}
     bind {{$server.Bind}}:{{$server.Port}}
     mode tcp
     balance roundrobin
-{{ range $backendIdx,$backend := $server.Discovery.BackendSpec }}    server {{ $backend.Host }}:{{ $backend.Port }} {{ $backend.Host }}:{{ $backend.Port }}
-{{end}}
+{{ range $backendIdx,$backend := $server.Backends }}    server {{ $backend.Host }}:{{ $backend.Port }} {{ $backend.Host }}:{{ $backend.Port }}
 {{end}}
 {{end}}

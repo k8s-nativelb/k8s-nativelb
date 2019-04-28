@@ -26,10 +26,10 @@ func (a AgentController) CreateOrUpdateAgentFromPod(clusterName string, pod *cor
 	agentStatus := v1.AgentStatus{LastUpdate: metav1.Now(), ConnectionStatus: v1.AgentUnknowStatus}
 	agentObject := &v1.Agent{ObjectMeta: metav1.ObjectMeta{Name: pod.Name, Namespace: v1.ControllerNamespace, Labels: pod.Labels, OwnerReferences: ownerRef}, Spec: agentSpec, Status: agentStatus}
 	if agent == nil {
-		_, err = a.Reconcile.Agent().Create(agentObject)
+		_, err = a.Reconcile.Agent(v1.ControllerNamespace).Create(agentObject)
 	} else {
 		agentObject.Status = agent.Status
-		_, err = a.Reconcile.Agent().Update(agentObject)
+		_, err = a.Reconcile.Agent(v1.ControllerNamespace).Update(agentObject)
 	}
 	return err
 }

@@ -160,11 +160,10 @@ func (r *ReconcileService) reSyncProcess() {
 		} else {
 			for _, service := range serviceList.Items {
 				if service.Spec.Type == "LoadBalancer" {
-					farmName := fmt.Sprintf("%s-%s", service.Namespace, service.Name)
-					farm, err := r.Farm().Get(farmName)
+					farm, err := r.Farm(service.Namespace).Get(service.Name)
 					if err != nil {
 						if !errors.IsNotFound(err) {
-							log.Log.Reason(err).Errorf("failed to get farm %s error %v", farmName, err)
+							log.Log.Reason(err).Errorf("failed to get farm %s on namespace %s error %v", service.Name, service.Namespace, err)
 							continue
 						} else {
 							r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: service.Namespace, Name: service.Name}})

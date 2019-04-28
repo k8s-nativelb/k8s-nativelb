@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 	PanicOnError(err)
 
 	if _, err := testClient.KubeClient.CoreV1().Namespaces().Get(TestNamespace, metav1.GetOptions{}); err == nil {
-		EventuallyWithOffset(1, func() bool { return errors.IsNotFound(testClient.DeleteTestNamespace()) },120*time.Second, 5*time.Second).
+		EventuallyWithOffset(1, func() bool { return errors.IsNotFound(testClient.DeleteTestNamespace()) }, 120*time.Second, 5*time.Second).
 			Should(BeTrue())
 	}
 
@@ -45,44 +45,44 @@ var _ = AfterSuite(func() {
 })
 
 func NativeLBFailedFunction(message string, callerSkip ...int) {
-	clusterList, err := testClient.NativelbClient.Cluster().List(&client.ListOptions{})
+	clusterList, err := testClient.NativelbClient.Cluster(nativelbv1.ControllerNamespace).List(&client.ListOptions{})
 	if err != nil {
 		fmt.Println(err)
 		Fail(message, callerSkip...)
 	}
 
-	for _,clusterObject := range clusterList.Items {
+	for _, clusterObject := range clusterList.Items {
 		fmt.Println(clusterObject)
 	}
 
-	agentList, err := testClient.NativelbClient.Agent().List(&client.ListOptions{})
+	agentList, err := testClient.NativelbClient.Agent(nativelbv1.ControllerNamespace).List(&client.ListOptions{})
 	if err != nil {
 		fmt.Println(err)
 		Fail(message, callerSkip...)
 	}
 
-	for _,agentObject := range agentList.Items {
+	for _, agentObject := range agentList.Items {
 		fmt.Println(agentObject)
 	}
 
-	podList,err := testClient.KubeClient.CoreV1().Pods(nativelbv1.ControllerNamespace).List(metav1.ListOptions{})
+	podList, err := testClient.KubeClient.CoreV1().Pods(nativelbv1.ControllerNamespace).List(metav1.ListOptions{})
 	var tailLines int64 = 30
-	for _,podObject := range podList.Items {
+	for _, podObject := range podList.Items {
 		fmt.Println(podObject)
-		logsRaw, err :=testClient.KubeClient.CoreV1().Pods(nativelbv1.ControllerNamespace).GetLogs(podObject.Name,&corev1.PodLogOptions{TailLines: &tailLines,
+		logsRaw, err := testClient.KubeClient.CoreV1().Pods(nativelbv1.ControllerNamespace).GetLogs(podObject.Name, &corev1.PodLogOptions{TailLines: &tailLines,
 			Container: podObject.Spec.Containers[0].Name}).DoRaw()
 		if err == nil {
 			fmt.Printf(string(logsRaw))
 		}
 	}
 
-	podList,err = testClient.KubeClient.CoreV1().Pods(TestNamespace).List(metav1.ListOptions{})
+	podList, err = testClient.KubeClient.CoreV1().Pods(TestNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		fmt.Println(err)
 		Fail(message, callerSkip...)
 	}
 
-	for _,agentObject := range agentList.Items {
+	for _, agentObject := range agentList.Items {
 		fmt.Println(agentObject)
 	}
 

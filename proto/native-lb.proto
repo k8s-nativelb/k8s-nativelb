@@ -5,19 +5,23 @@ package proto;
 import "google/protobuf/duration.proto";
 
 service NativeLoadBalancerAgent {
-    rpc CreateServers(Data) returns (Result) {}
-    rpc UpdateServers(Data) returns (Result) {}
-    rpc DeleteServers(Data) returns (Result) {}
+    rpc CreateServers(FarmSpec) returns (Result) {}
+    rpc UpdateServers(FarmSpec) returns (Result) {}
+    rpc DeleteServers(FarmSpec) returns (Result) {}
     rpc InitAgent(InitAgentData) returns (InitAgentResult) {}
     rpc GetAgentStatus(Command) returns (AgentStatus) {}
-    rpc GetServerStats(Command) returns (ServerStats) {}
+    rpc GetServersStats(Command) returns (ServersStats) {}
     rpc StopAgent(Command) returns (Result) {}
     rpc UpdateAgentSyncVersion(InitAgentData) returns (Result) {}
 }
 
+message Command {}
+message Result {}
+
 message InitAgentData {
     int32 SyncVersion = 1;
-    repeated Data Data = 2;
+    bool Operational = 2;
+    repeated FarmSpec Farms = 3;
 }
 
 message InitAgentResult {
@@ -25,14 +29,14 @@ message InitAgentResult {
     AgentStatus AgentStatus = 2;
 }
 
-message Data {
+message FarmSpec {
     string FarmName = 1;
     // Keepalived Parameters
     string Namespace = 2;
     string KeepalivedState = 3;
     int32 RouterID = 4;
     int32 Priority = 5;
-    repeated Server Servers = 6;
+    map<string,Server> Servers = 6;
 }
 
 message Agent {
@@ -47,24 +51,28 @@ message Agent {
 
 message AgentStatus {
     string Name = 1;
-    int32 LBPid = 2;
+    int32 HaproxyPid = 2;
     int32 KeepAlivedPid = 3;
-    string StartTime = 4;
-    string Time = 5;
-    google.protobuf.Duration Uptime = 6;
-    string Version = 7;
-    string Status = 8;
-    int32 SyncVersion = 9;
+    int32 NginxPid = 4;
+    string Version = 5;
+    string Status = 6;
+    string OperationStatus = 7;
+    int32 SyncVersion = 8;
+    HaproxyStatus HaproxyStatus = 9;
+    NginxStatus NginxStatus = 10;
+    map<string,string> KeepalivedState = 11;
+}
+
+message ServersStats {
+    map<string,ServerStats> ServersStats = 3;
 }
 
 message ServerStats {
-    string Name = 1;
-    int32 ActiveConnections = 2;
-    int32 RxTotal = 3;
-    int32 TxTotal = 4;
-    int32 RxSecond  = 5;
-    int32 TxSecond  = 6;
-    repeated Backend Backends = 7;
+    Status Frontend = 1;
+    Status Backend= 2;
+    repeated Status Backends = 3;
+    string serverName = 4;
+    string serverNamespace = 5;
 }
 
 message Server {
@@ -73,18 +81,12 @@ message Server {
     string Protocol = 2;
     int32 Port = 3;
     UDP UDP = 4;
-    string Balance = 5;
-    int32 MaxConnections = 6;
-    string ClientIdleTimeout = 7;
-    string BackendIdleTimeout = 8;
-    string BackendConnectionTimeout = 9;
-    Discovery Discovery = 10;
-    HealthCheck HealthCheck = 11;
-}
-
-message Discovery {
-    string Kind = 1;
-    repeated BackendSpec BackendSpec = 2;
+    TCP TCP = 5;
+    string Balance = 6;
+    HealthCheck HealthCheck = 7;
+    map<string,BackendSpec> Backends = 8;
+    string ClusterName = 9;
+    string ClusterNamespace = 10;
 }
 
 message HealthCheck {
@@ -101,9 +103,11 @@ message UDP {
     int32 MaxResponses = 2;
 }
 
-message Backend {
-    BackendSpec BackendSpec = 1;
-    BackendStatus BackendStatus = 2;
+message TCP {
+    int32 MaxConnections = 1;
+    string ClientIdleTimeout = 2;
+    string BackendIdleTimeout = 3;
+    string BackendConnectionTimeout = 4;
 }
 
 message BackendSpec {
@@ -113,16 +117,96 @@ message BackendSpec {
     int32 Weight = 4;
 }
 
-message  BackendStatus {
-    bool Live = 1;
-    int32 TotalConnections = 2;
-    int32 ActiveConnections = 3;
-    int32 RefusedConnections = 4;
-    int32 Rx = 5;
-    int32 Tx = 6;
-    int32 RxSecond = 7;
-    int32 TxSecond =8;
+message NginxStatus {
+    uint64 Pid = 1;
+    uint64 ActiveConnections = 2;
+    uint64 Reading = 3;
+    uint64 Writing = 4;
+    uint64 Waiting = 5;
+    string Version = 6;
 }
 
-message Command {}
-message Result {}
+message HaproxyStatus {
+    string Version = 1;
+    string ReleaseDate = 2;
+    uint64 Nbproc = 3;
+    uint64 ProcessNum = 4;
+    uint64 Pid = 5;
+    string Uptime = 6;
+    uint64 UptimeSec = 7;
+    uint64 MemMaxMB = 8;
+    uint64 UlimitN = 9;
+    uint64 Maxsock = 10;
+    uint64 Maxconn = 11;
+    uint64 HardMaxconn = 12;
+    uint64 CurrConns = 13;
+    uint64 CumConns = 14;
+    uint64 CumReq = 15;
+    uint64 MaxSslConns = 16;
+    uint64 CurrSslConns = 17;
+    uint64 CumSslConns = 18;
+    uint64 Maxpipes = 19;
+    uint64 PipesUsed = 20;
+    uint64 PipesFree = 21;
+    uint64 ConnRate = 22;
+    uint64 ConnRateLimit = 23;
+    uint64 MaxConnRate = 24;
+    uint64 SessRate = 25;
+    uint64 SessRateLimit = 26;
+    uint64 MaxSessRate = 27;
+    uint64 SslRate = 28;
+    uint64 SslRateLimit = 29;
+    uint64 MaxSslRate = 30;
+    uint64 SslFrontendKeyRate = 31;
+    uint64 SslFrontendMaxKeyRate = 32;
+    uint64 SslFrontendSessionReusePct = 33;
+    uint64 SslBackendKeyRate = 34;
+    uint64 SslBackendMaxKeyRate = 35;
+    uint64 SslCacheLookups = 36;
+    uint64 SslCacheMisses = 37;
+    uint64 CompressBpsIn = 38;
+    uint64 CompressBpsOut = 39;
+    uint64 CompressBpsRateLim = 40;
+    uint64 Tasks = 41;
+    uint64 RunQueue = 42;
+    uint64 IdlePct =43;
+}
+
+message  Status {
+    string PxName = 1;
+    string SvName = 2;
+    uint64 Qcur = 3;
+    uint64 Qmax = 4;
+    uint64 Scur = 5;
+    uint64 Smax = 6;
+    uint64 Slim = 7;
+    uint64 Stot = 8;
+    uint64 Bin  = 9;
+    uint64 Bout = 10;
+    uint64 Dreq = 11;
+    uint64 Dresp = 12;
+    uint64 Ereq = 13;
+    uint64 Econ = 14;
+    uint64 Eresp = 15;
+    uint64 Wretr = 16;
+    uint64 Wredis = 17;
+    string Status = 18;
+    uint64 Weight = 19;
+    uint64 Act = 20;
+    uint64 Bck = 21;
+    uint64 ChkFail = 22;
+    uint64 ChkDown = 23;
+    uint64 Lastchg = 24;
+    uint64 Downtime = 25;
+    uint64 Qlimit  =26;
+    uint64 Pid  = 27;
+    uint64 Iid  = 28;
+    uint64 Sid  = 29;
+    uint64 Throttle = 30;
+    uint64 Lbtot = 31;
+    uint64 Tracked  = 32;
+    uint64 Type = 33;
+    uint64 Rate = 34;
+    uint64 RateLim = 35;
+    uint64 RateMax = 36;
+}

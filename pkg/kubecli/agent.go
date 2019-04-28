@@ -25,15 +25,17 @@ import (
 	"time"
 )
 
-func (n *nativeLB) Agent() AgentInterface {
-	return &agent{n.Client}
+func (n *nativeLB) Agent(namespace string) AgentInterface {
+	return &agent{n.Client, namespace}
 }
 
 type agent struct {
 	client.Client
+	Namespace string
 }
 
 func (c *agent) Create(agent *v1.Agent) (*v1.Agent, error) {
+	agent.Namespace = c.Namespace
 	err := c.Client.Create(context.Background(), agent)
 	if err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func (c *agent) Get(name string) (*v1.Agent, error) {
 	var err error
 
 	for i := 0; i < getRetry; i++ {
-		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: v1.ControllerNamespace}, agent)
+		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: c.Namespace}, agent)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil {
@@ -71,7 +73,7 @@ func (c *agent) Update(agent *v1.Agent) (*v1.Agent, error) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: agent.Name, Namespace: v1.ControllerNamespace}, result)
+		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: agent.Name, Namespace: c.Namespace}, result)
 		if getErr != nil {
 			return fmt.Errorf("Failed to get latest version of Agent: %v", getErr)
 		}
@@ -95,11 +97,13 @@ func (c *agent) Delete(name string) error {
 		return err
 	}
 
+	agent.Namespace = c.Namespace
 	err = c.Client.Delete(context.Background(), agent)
 	return err
 }
 
 func (c *agent) List(opts *client.ListOptions) (*v1.AgentList, error) {
+	opts.Namespace = c.Namespace
 	agentList := &v1.AgentList{}
 	err := c.Client.List(context.Background(), opts, agentList)
 

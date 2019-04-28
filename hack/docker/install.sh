@@ -1,6 +1,6 @@
 #!/bin/bash
-PROTOC_ZIP=protoc-3.6.1-linux-x86_64.zip
-curl -OL https://github.com/google/protobuf/releases/download/v3.6.1/$PROTOC_ZIP
+PROTOC_ZIP=protoc-3.7.1-linux-x86_64.zip
+curl -OL https://github.com/google/protobuf/releases/download/v3.7.1/$PROTOC_ZIP
 
 unzip -o $PROTOC_ZIP -d protoc3
 mv protoc3/bin/* /usr/local/bin/

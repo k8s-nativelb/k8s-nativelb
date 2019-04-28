@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/agent"
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/backend"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/cluster"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/endpoint"
 	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/farm"
@@ -44,7 +43,6 @@ type NativeLBManager struct {
 	nativeLBGrpcManager *grpc_manager.NativeLBGrpcManager
 
 	agentController     *agent_controller.AgentController
-	backendController   *backend_controller.BackendController
 	serverController    *server_controller.ServerController
 	farmController      *farm_controller.FarmController
 	clusterController   *cluster_controller.ClusterController
@@ -82,7 +80,6 @@ func NewNativeLBManager() *NativeLBManager {
 	nativeLBGrpcManager := grpc_manager.NewNativeLBGrpcManager(nativelbCli, stopChan)
 	nativeLBManager := &NativeLBManager{nativelbCli,
 		nativeLBGrpcManager,
-		nil,
 		nil,
 		nil,
 		nil,
@@ -135,15 +132,8 @@ func (n *NativeLBManager) addToManager() error {
 	}
 	n.daemonsetController = daemonsetController
 
-	log.Log.V(2).Infof("Creating Backend controller")
-	backendController, err := backend_controller.NewBackendController(n.nativelbCli)
-	if err != nil {
-		return err
-	}
-	n.backendController = backendController
-
 	log.Log.V(2).Infof("Creating Server controller")
-	serverController, err := server_controller.NewServerController(n.nativelbCli, backendController)
+	serverController, err := server_controller.NewServerController(n.nativelbCli)
 	if err != nil {
 		return err
 	}

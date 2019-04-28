@@ -33,8 +33,37 @@ func (m *MockUdpLoadBalancerInterface) EXPECT() *MockUdpLoadBalancerInterfaceMoc
 	return m.recorder
 }
 
+// GetPid mocks base method
+func (m *MockUdpLoadBalancerInterface) GetPid() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPid")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetPid indicates an expected call of GetPid
+func (mr *MockUdpLoadBalancerInterfaceMockRecorder) GetPid() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPid", reflect.TypeOf((*MockUdpLoadBalancerInterface)(nil).GetPid))
+}
+
+// GetStatus mocks base method
+func (m *MockUdpLoadBalancerInterface) GetStatus() (*proto.NginxStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStatus")
+	ret0, _ := ret[0].(*proto.NginxStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStatus indicates an expected call of GetStatus
+func (mr *MockUdpLoadBalancerInterfaceMockRecorder) GetStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatus", reflect.TypeOf((*MockUdpLoadBalancerInterface)(nil).GetStatus))
+}
+
 // UpdateFarm mocks base method
-func (m *MockUdpLoadBalancerInterface) UpdateFarm(arg0 *proto.Data) error {
+func (m *MockUdpLoadBalancerInterface) UpdateFarm(arg0 *proto.FarmSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateFarm", arg0)
 	ret0, _ := ret[0].(error)
@@ -48,7 +77,7 @@ func (mr *MockUdpLoadBalancerInterfaceMockRecorder) UpdateFarm(arg0 interface{})
 }
 
 // RemoveFarm mocks base method
-func (m *MockUdpLoadBalancerInterface) RemoveFarm(arg0 *proto.Data) error {
+func (m *MockUdpLoadBalancerInterface) RemoveFarm(arg0 *proto.FarmSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveFarm", arg0)
 	ret0, _ := ret[0].(error)

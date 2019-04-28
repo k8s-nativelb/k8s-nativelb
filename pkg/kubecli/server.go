@@ -25,11 +25,12 @@ import (
 	"time"
 )
 
-func (n *nativeLB) Server() ServerInterface {
-	return &server{n.Client}
+func (n *nativeLB) Server(namespace string) ServerInterface {
+	return &server{n.Client, namespace}
 }
 
 func (c *server) Create(server *v1.Server) (*v1.Server, error) {
+	server.Namespace = c.Namespace
 	err := c.Client.Create(context.Background(), server)
 	if err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func (c *server) Get(name string) (*v1.Server, error) {
 	var err error
 
 	for i := 0; i < getRetry; i++ {
-		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: v1.ControllerNamespace}, server)
+		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: c.Namespace}, server)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil {
@@ -63,6 +64,7 @@ func (c *server) Get(name string) (*v1.Server, error) {
 
 type server struct {
 	client.Client
+	Namespace string
 }
 
 func (c *server) Update(server *v1.Server) (*v1.Server, error) {
@@ -71,7 +73,7 @@ func (c *server) Update(server *v1.Server) (*v1.Server, error) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: server.Name, Namespace: v1.ControllerNamespace}, result)
+		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: server.Name, Namespace: c.Namespace}, result)
 		if getErr != nil {
 			return fmt.Errorf("Failed to get latest version of Server: %v", getErr)
 		}
@@ -94,12 +96,13 @@ func (c *server) Delete(name string) error {
 	if err != nil {
 		return err
 	}
-
+	server.Namespace = c.Namespace
 	err = c.Client.Delete(context.Background(), server)
 	return err
 }
 
 func (c *server) List(opts *client.ListOptions) (*v1.ServerList, error) {
+	opts.Namespace = c.Namespace
 	serverList := &v1.ServerList{}
 	err := c.Client.List(context.Background(), opts, serverList)
 

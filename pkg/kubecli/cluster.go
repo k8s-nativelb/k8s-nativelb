@@ -25,15 +25,17 @@ import (
 	"time"
 )
 
-func (n *nativeLB) Cluster() ClusterInterface {
-	return &cluster{n.Client}
+func (n *nativeLB) Cluster(namespace string) ClusterInterface {
+	return &cluster{n.Client, namespace}
 }
 
 type cluster struct {
 	client.Client
+	Namespace string
 }
 
 func (c *cluster) Create(cluster *v1.Cluster) (*v1.Cluster, error) {
+	cluster.Namespace = c.Namespace
 	err := c.Client.Create(context.Background(), cluster)
 	if err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func (c *cluster) Get(name string) (*v1.Cluster, error) {
 	var err error
 
 	for i := 0; i < getRetry; i++ {
-		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: v1.ControllerNamespace}, cluster)
+		err = c.Client.Get(context.Background(), client.ObjectKey{Name: name, Namespace: c.Namespace}, cluster)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil {
@@ -71,7 +73,7 @@ func (c *cluster) Update(cluster *v1.Cluster) (*v1.Cluster, error) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: cluster.Name, Namespace: v1.ControllerNamespace}, result)
+		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: cluster.Name, Namespace: c.Namespace}, result)
 		if getErr != nil {
 			return fmt.Errorf("Failed to get latest version of Cluster: %v", getErr)
 		}
@@ -94,12 +96,13 @@ func (c *cluster) Delete(name string) error {
 	if err != nil {
 		return err
 	}
-
+	cluster.Namespace = c.Namespace
 	err = c.Client.Delete(context.Background(), cluster)
 	return err
 }
 
 func (c *cluster) List(opts *client.ListOptions) (*v1.ClusterList, error) {
+	opts.Namespace = c.Namespace
 	clusterList := &v1.ClusterList{}
 	err := c.Client.List(context.Background(), opts, clusterList)
 

@@ -19,8 +19,10 @@ package keepalived
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/k8s-nativelb/pkg/log"
@@ -31,13 +33,14 @@ import (
 type KeepalivedInterface interface {
 	GetPid() int32
 	WriteConfig() error
-	NewFarmForInstance(*proto.Data) error
-	DeleteFarmInInstance(*proto.Data) error
+	NewFarmForInstance(*proto.FarmSpec) error
+	DeleteFarmInInstance(*proto.FarmSpec) error
 	BuildIpsFromFarmsForNamespace(string)
 	LoadInitData(*proto.InitAgentData) error
 	StartEngine() error
 	ReloadEngine() error
 	StopEngine()
+	GetStatus() (map[string]string, error)
 }
 
 type VrrpInstance struct {
@@ -48,7 +51,8 @@ type VrrpInstance struct {
 	RouterID  int32
 	Priority  int32
 	State     string
-	farms     map[string]*proto.Data
+	farms     map[string]*proto.FarmSpec
+	Status    string
 }
 
 type Keepalived struct {
@@ -69,7 +73,7 @@ func NewKeepalived(iface string) (*Keepalived, error) {
 	return &Keepalived{tmpl: tmpl, iface: iface, handler: handlerInstance, vrrpInstances: make(map[string]*VrrpInstance)}, nil
 }
 
-func (k *Keepalived) NewFarmForInstance(data *proto.Data) error {
+func (k *Keepalived) NewFarmForInstance(data *proto.FarmSpec) error {
 	if _, ok := k.vrrpInstances[data.Namespace]; !ok {
 		instance := &VrrpInstance{Namespace: data.Namespace,
 			Iface:    k.iface,
@@ -78,7 +82,7 @@ func (k *Keepalived) NewFarmForInstance(data *proto.Data) error {
 			SecVips:  make([]string, 0),
 			State:    data.KeepalivedState,
 			Priority: data.Priority,
-			farms:    map[string]*proto.Data{data.FarmName: data}}
+			farms:    map[string]*proto.FarmSpec{data.FarmName: data}}
 
 		k.vrrpInstances[data.Namespace] = instance
 	} else {
@@ -103,7 +107,7 @@ func (k *Keepalived) GetPid() int32 {
 	return int32(pid)
 }
 
-func (k *Keepalived) DeleteFarmInInstance(data *proto.Data) error {
+func (k *Keepalived) DeleteFarmInInstance(data *proto.FarmSpec) error {
 	if _, ok := k.vrrpInstances[data.Namespace]; !ok {
 		return fmt.Errorf("failed to find namespace %s in the configuration", data.Namespace)
 	}
@@ -128,11 +132,11 @@ func (k *Keepalived) BuildIpsFromFarmsForNamespace(namespace string) {
 	instance.SecVips = make([]string, 0)
 
 	for _, farm := range instance.farms {
-		for i := 0; i < len(farm.Servers); i++ {
+		for _, server := range farm.Servers {
 			if instance.MainVip == "" {
-				instance.MainVip = farm.Servers[i].Bind
+				instance.MainVip = server.Bind
 			} else {
-				instance.SecVips = append(instance.SecVips, farm.Servers[i].Bind)
+				instance.SecVips = append(instance.SecVips, server.Bind)
 			}
 		}
 	}
@@ -141,7 +145,7 @@ func (k *Keepalived) BuildIpsFromFarmsForNamespace(namespace string) {
 func (k *Keepalived) LoadInitData(data *proto.InitAgentData) error {
 	k.vrrpInstances = make(map[string]*VrrpInstance)
 
-	for _, farm := range data.Data {
+	for _, farm := range data.Farms {
 		err := k.NewFarmForInstance(farm)
 		if err != nil {
 			return err
@@ -190,4 +194,31 @@ func (k *Keepalived) StopEngine() {
 		log.Log.Reason(err).Errorf("failed to stop keepalived process")
 	}
 	k.pid = ""
+}
+
+func (k *Keepalived) GetStatus() (map[string]string, error) {
+	stateMap := map[string]string{}
+	for namespace := range k.vrrpInstances {
+		stateFile := fmt.Sprintf("/run/keepalive.%s.state", namespace)
+		_, err := os.Stat(fmt.Sprintf("/run/keepalive.%s.state", namespace))
+		if err != nil {
+			log.Log.Reason(err).Errorf("status file for keepalived instance %s is not exist", namespace)
+			k.vrrpInstances[namespace].State = "UNKNOW"
+			stateMap[namespace] = k.vrrpInstances[namespace].State
+			continue
+		}
+
+		dat, err := ioutil.ReadFile(stateFile)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to read state for keepalived instance %s", namespace)
+			k.vrrpInstances[namespace].State = "UNKNOW"
+			stateMap[namespace] = k.vrrpInstances[namespace].State
+			continue
+		}
+
+		k.vrrpInstances[namespace].State = strings.Replace(string(dat), "\n", "", -1)
+		stateMap[namespace] = k.vrrpInstances[namespace].State
+	}
+
+	return stateMap, nil
 }

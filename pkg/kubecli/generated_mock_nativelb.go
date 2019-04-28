@@ -39,73 +39,59 @@ func (m *MockNativelbClient) EXPECT() *MockNativelbClientMockRecorder {
 }
 
 // Cluster mocks base method
-func (m *MockNativelbClient) Cluster() ClusterInterface {
+func (m *MockNativelbClient) Cluster(arg0 string) ClusterInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cluster")
+	ret := m.ctrl.Call(m, "Cluster", arg0)
 	ret0, _ := ret[0].(ClusterInterface)
 	return ret0
 }
 
 // Cluster indicates an expected call of Cluster
-func (mr *MockNativelbClientMockRecorder) Cluster() *gomock.Call {
+func (mr *MockNativelbClientMockRecorder) Cluster(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cluster", reflect.TypeOf((*MockNativelbClient)(nil).Cluster))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cluster", reflect.TypeOf((*MockNativelbClient)(nil).Cluster), arg0)
 }
 
 // Farm mocks base method
-func (m *MockNativelbClient) Farm() FarmInterface {
+func (m *MockNativelbClient) Farm(arg0 string) FarmInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Farm")
+	ret := m.ctrl.Call(m, "Farm", arg0)
 	ret0, _ := ret[0].(FarmInterface)
 	return ret0
 }
 
 // Farm indicates an expected call of Farm
-func (mr *MockNativelbClientMockRecorder) Farm() *gomock.Call {
+func (mr *MockNativelbClientMockRecorder) Farm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Farm", reflect.TypeOf((*MockNativelbClient)(nil).Farm))
-}
-
-// Backend mocks base method
-func (m *MockNativelbClient) Backend() BackendInterface {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Backend")
-	ret0, _ := ret[0].(BackendInterface)
-	return ret0
-}
-
-// Backend indicates an expected call of Backend
-func (mr *MockNativelbClientMockRecorder) Backend() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Backend", reflect.TypeOf((*MockNativelbClient)(nil).Backend))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Farm", reflect.TypeOf((*MockNativelbClient)(nil).Farm), arg0)
 }
 
 // Server mocks base method
-func (m *MockNativelbClient) Server() ServerInterface {
+func (m *MockNativelbClient) Server(arg0 string) ServerInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Server")
+	ret := m.ctrl.Call(m, "Server", arg0)
 	ret0, _ := ret[0].(ServerInterface)
 	return ret0
 }
 
 // Server indicates an expected call of Server
-func (mr *MockNativelbClientMockRecorder) Server() *gomock.Call {
+func (mr *MockNativelbClientMockRecorder) Server(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Server", reflect.TypeOf((*MockNativelbClient)(nil).Server))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Server", reflect.TypeOf((*MockNativelbClient)(nil).Server), arg0)
 }
 
 // Agent mocks base method
-func (m *MockNativelbClient) Agent() AgentInterface {
+func (m *MockNativelbClient) Agent(arg0 string) AgentInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Agent")
+	ret := m.ctrl.Call(m, "Agent", arg0)
 	ret0, _ := ret[0].(AgentInterface)
 	return ret0
 }
 
 // Agent indicates an expected call of Agent
-func (mr *MockNativelbClientMockRecorder) Agent() *gomock.Call {
+func (mr *MockNativelbClientMockRecorder) Agent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Agent", reflect.TypeOf((*MockNativelbClient)(nil).Agent))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Agent", reflect.TypeOf((*MockNativelbClient)(nil).Agent), arg0)
 }
 
 // GetManager mocks base method
@@ -370,103 +356,6 @@ func (m *MockFarmInterface) Delete(name string) error {
 func (mr *MockFarmInterfaceMockRecorder) Delete(name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockFarmInterface)(nil).Delete), name)
-}
-
-// MockBackendInterface is a mock of BackendInterface interface
-type MockBackendInterface struct {
-	ctrl     *gomock.Controller
-	recorder *MockBackendInterfaceMockRecorder
-}
-
-// MockBackendInterfaceMockRecorder is the mock recorder for MockBackendInterface
-type MockBackendInterfaceMockRecorder struct {
-	mock *MockBackendInterface
-}
-
-// NewMockBackendInterface creates a new mock instance
-func NewMockBackendInterface(ctrl *gomock.Controller) *MockBackendInterface {
-	mock := &MockBackendInterface{ctrl: ctrl}
-	mock.recorder = &MockBackendInterfaceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockBackendInterface) EXPECT() *MockBackendInterfaceMockRecorder {
-	return m.recorder
-}
-
-// Get mocks base method
-func (m *MockBackendInterface) Get(name string) (*v1.Backend, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", name)
-	ret0, _ := ret[0].(*v1.Backend)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Get indicates an expected call of Get
-func (mr *MockBackendInterfaceMockRecorder) Get(name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackendInterface)(nil).Get), name)
-}
-
-// List mocks base method
-func (m *MockBackendInterface) List(opts *client.ListOptions) (*v1.BackendList, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", opts)
-	ret0, _ := ret[0].(*v1.BackendList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// List indicates an expected call of List
-func (mr *MockBackendInterfaceMockRecorder) List(opts interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockBackendInterface)(nil).List), opts)
-}
-
-// Create mocks base method
-func (m *MockBackendInterface) Create(instance *v1.Backend) (*v1.Backend, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", instance)
-	ret0, _ := ret[0].(*v1.Backend)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create
-func (mr *MockBackendInterfaceMockRecorder) Create(instance interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockBackendInterface)(nil).Create), instance)
-}
-
-// Update mocks base method
-func (m *MockBackendInterface) Update(arg0 *v1.Backend) (*v1.Backend, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", arg0)
-	ret0, _ := ret[0].(*v1.Backend)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Update indicates an expected call of Update
-func (mr *MockBackendInterfaceMockRecorder) Update(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockBackendInterface)(nil).Update), arg0)
-}
-
-// Delete mocks base method
-func (m *MockBackendInterface) Delete(name string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", name)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Delete indicates an expected call of Delete
-func (mr *MockBackendInterfaceMockRecorder) Delete(name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockBackendInterface)(nil).Delete), name)
 }
 
 // MockServerInterface is a mock of ServerInterface interface

@@ -32,18 +32,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/k8s-nativelb/pkg/nativelb-controller/controllers/backend"
 	pb "github.com/k8s-nativelb/pkg/proto"
 )
 
 type ServerController struct {
 	Controller         controller.Controller
 	Reconcile          *Reconcile
-	backendController  *backend_controller.BackendController
 	serverStatsChannel chan pb.ServerStats
 }
 
-func NewServerController(nativelbClient kubecli.NativelbClient, backendController *backend_controller.BackendController) (*ServerController, error) {
+func NewServerController(nativelbClient kubecli.NativelbClient) (*ServerController, error) {
 	reconcileInstance := newReconciler(nativelbClient)
 	controllerInstance, err := newController(nativelbClient, reconcileInstance)
 	if err != nil {
@@ -51,7 +49,7 @@ func NewServerController(nativelbClient kubecli.NativelbClient, backendControlle
 	}
 
 	serverController := &ServerController{Controller: controllerInstance,
-		Reconcile: reconcileInstance, backendController: backendController}
+		Reconcile: reconcileInstance}
 
 	return serverController, nil
 }
@@ -93,7 +91,7 @@ type Reconcile struct {
 // and what is in the Agent.Spec
 // +kubebuilder:rbac:groups=k8s.native-lb,resources=server,verbs=get;list;watch;create;update;patch;delete
 func (r *Reconcile) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	instance, err := r.Server().Get(request.NamespacedName.Name)
+	instance, err := r.Server(request.NamespacedName.Namespace).Get(request.NamespacedName.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.

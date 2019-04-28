@@ -102,8 +102,8 @@ func (n *NativeLBGrpcManager) GetAgentStatus(agent *v1.Agent, agentNumber, numOf
 		}
 	}
 
-	if int(agentStatus.KeepAlivedPid) == 0 || int(agentStatus.LBPid) == 0 {
-		log.Log.Errorf("get bad response from agent %s, pid can't be 0", agent.Name)
+	if agent.Spec.Operational && (int(agentStatus.KeepAlivedPid) == 0 || int(agentStatus.HaproxyPid) == 0) {
+		log.Log.Errorf("get bad response from agent %s, pid can't be 0 if operation status is true", agent.Name)
 		agent.Status.ConnectionStatus = v1.AgentDownStatus
 		_, err = n.updateAgentStatus(agent)
 		if err != nil {
@@ -112,19 +112,15 @@ func (n *NativeLBGrpcManager) GetAgentStatus(agent *v1.Agent, agentNumber, numOf
 		return
 	}
 
-	// TODO Add more specs here
 	agent.Spec.HostName = agentData.HostName
+	agent.Status = proto.ConvertAgentStatusProtoToK8sAgent(agentStatus)
+
+	n.GetServerStats(agent)
 
 	agent.Status.ConnectionStatus = v1.AgentAliveStatus
-	agent.Status.LBPid = int(agentStatus.LBPid)
-	agent.Status.KeepAlivedPid = int(agentStatus.KeepAlivedPid)
-	agent.Status.StartTime = agentStatus.StartTime
-	agent.Status.Time = agentStatus.Time
-	agent.Status.Uptime = time.Duration(agentStatus.Uptime.Seconds)
-	agent.Status.Version = agentStatus.Version
 	updatedAgent, err := n.updateAgentStatus(agent)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to update agent %s status error: %v", agent.Name, err)
+		log.Log.Reason(err).Errorf("failed to update agent %s status", agent.Name)
 		return
 	}
 
@@ -147,7 +143,7 @@ func (n *NativeLBGrpcManager) GetAgentStatus(agent *v1.Agent, agentNumber, numOf
 }
 
 func (n *NativeLBGrpcManager) InitAgent(grpcClient *proto.NativeLoadBalancerAgentClient, agent *v1.Agent, agentNumber, numOfAgents int) (*proto.Agent, *proto.AgentStatus, error) {
-	clusterObject, err := n.nativelbClient.Cluster().Get(agent.Spec.Cluster)
+	clusterObject, err := n.nativelbClient.Cluster(v1.ControllerNamespace).Get(agent.Spec.Cluster)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to find cluster %s for agent %s", agent.Spec.Cluster, agent.Name)
 		return nil, nil, err
@@ -156,7 +152,7 @@ func (n *NativeLBGrpcManager) InitAgent(grpcClient *proto.NativeLoadBalancerAgen
 	labelSelector := labels.Set{}
 	labelSelector[v1.ClusterLabel] = clusterObject.Name
 	labelSelector[v1.FarmStatusLabel] = v1.FarmStatusLabelSynced
-	farms, err := n.nativelbClient.Farm().List(&client.ListOptions{Namespace: v1.ControllerNamespace, LabelSelector: labelSelector.AsSelector()})
+	farms, err := n.nativelbClient.Farm("").List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get the list of farms related to %s cluster", clusterObject.Name)
 		return nil, nil, err
@@ -168,7 +164,7 @@ func (n *NativeLBGrpcManager) InitAgent(grpcClient *proto.NativeLoadBalancerAgen
 	if err != nil {
 		return nil, nil, err
 	}
-	initData := &proto.InitAgentData{SyncVersion: int32(syncVersion), Data: dataList}
+	initData := &proto.InitAgentData{SyncVersion: int32(syncVersion), Operational: agent.Spec.Operational, Farms: dataList}
 
 	result, err := (*grpcClient).InitAgent(context.TODO(), initData)
 	if err != nil {
@@ -177,6 +173,54 @@ func (n *NativeLBGrpcManager) InitAgent(grpcClient *proto.NativeLoadBalancerAgen
 	}
 
 	return result.Agent, result.AgentStatus, nil
+}
+
+func (n *NativeLBGrpcManager) GetServerStats(agent *v1.Agent) {
+	conn, err := n.connect(agent.GetUrl())
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to connect to agent %s url %s error: %v", agent.Name, agent.GetUrl(), err)
+		agent.Status.ConnectionStatus = v1.AgentDownStatus
+		_, err = n.updateAgentStatus(agent)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to update agent %s to down status error: %v", agent.Name, err)
+		}
+		return
+	}
+	defer conn.Close()
+
+	grpcClient := proto.NewNativeLoadBalancerAgentClient(conn)
+	serversStats, err := grpcClient.GetServersStats(context.TODO(), &proto.Command{})
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to update servers from agent %s", agent.Name)
+	}
+
+	for _, serverStat := range serversStats.ServersStats {
+		serverObject, err := n.nativelbClient.Server(serverStat.ServerNamespace).Get(serverStat.ServerName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get server %s from namespace %s", serverStat.ServerName, serverStat.ServerNamespace)
+			continue
+		}
+
+		if agent.Status.LoadBalancer.Keepalived.InstancesStatus[serverStat.ServerNamespace] == "MASTER" {
+			frontend := proto.ConvertStatusProtoToK8sHaproxyStatus(serverStat.Frontend)
+			serverObject.Status.Frontend = frontend
+
+			backend := proto.ConvertStatusProtoToK8sHaproxyStatus(serverStat.Backend)
+			serverObject.Status.Backend = backend
+
+			serverObject.Status.Backends = []*v1.HaproxyStatus{}
+
+			for _, backendStat := range serverStat.Backends {
+				backendObject := proto.ConvertStatusProtoToK8sHaproxyStatus(backendStat)
+				serverObject.Status.Backends = append(serverObject.Status.Backends, backendObject)
+			}
+
+			_, err = n.nativelbClient.Server(serverStat.ServerNamespace).Update(serverObject)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to update server %s on namespace %s", serverObject.Name, serverObject.Namespace)
+			}
+		}
+	}
 }
 
 func (n *NativeLBGrpcManager) connect(serverAddr string) (*grpc.ClientConn, error) {
@@ -189,9 +233,12 @@ func (n *NativeLBGrpcManager) connect(serverAddr string) (*grpc.ClientConn, erro
 }
 
 func (n *NativeLBGrpcManager) sendDataToAgent(command string, farm *v1.Farm, cluster *v1.Cluster) error {
+	if cluster.Status.AllocatedNamespaces == nil {
+		return fmt.Errorf("no allocatedNamespaces for cluster %s", cluster.Name)
+	}
 	labelSelector := labels.Set{}
 	labelSelector[v1.ClusterLabel] = cluster.Name
-	agents, err := n.nativelbClient.Agent().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
+	agents, err := n.nativelbClient.Agent(v1.ControllerNamespace).List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get agents list for cluster %s error: %v", cluster.Name, err)
 		return err
@@ -245,6 +292,7 @@ func (n *NativeLBGrpcManager) sendDataToAgent(command string, farm *v1.Farm, clu
 		}
 
 		if err != nil {
+			log.Log.Reason(err).Errorf("failed to send comment to agent %s", agentInstance.Name)
 			agentInstance.Status.ConnectionStatus = v1.AgentDownStatus
 			continue
 		}
@@ -261,7 +309,7 @@ func (n *NativeLBGrpcManager) sendDataToAgent(command string, farm *v1.Farm, clu
 func (n *NativeLBGrpcManager) updateAgentStatus(agent *v1.Agent) (*v1.Agent, error) {
 	n.updateAgentStatusMutex.Lock()
 	agent.Status.LastUpdate = metav1.Time{Time: time.Now()}
-	updatedAgent, err := n.nativelbClient.Agent().Update(agent)
+	updatedAgent, err := n.nativelbClient.Agent(v1.ControllerNamespace).Update(agent)
 	n.updateAgentStatusMutex.Unlock()
 	if err != nil {
 		return agent, err

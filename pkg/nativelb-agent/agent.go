@@ -37,6 +37,7 @@ type NativelbAgent struct {
 	loadBalancerController    loadbalancer.LoadBalancerInterface
 	udpLoadBalancerController udp_loadbalancer.UdpLoadBalancerInterface
 	keepalivedController      keepalived.KeepalivedInterface
+	farms                     map[string]*FarmSpec
 	grpcServer                *grpc.Server
 }
 

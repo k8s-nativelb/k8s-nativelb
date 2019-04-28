@@ -7,12 +7,22 @@ events {
     worker_connections  1024;
 }
 
-stream {
-{{range $farmKey,$farmValue := .}}
-{{ range $idx,$server := $farmValue.Servers }}
+http {
+    server {
+        location /nginx_status {
+          stub_status on;
+          access_log   off;
+          allow 127.0.0.1;
+          deny all;
+        }
+    }
+}
 
-    upstream {{$farmValue.FarmName}}-{{$server.Bind}}-{{$server.Port}} {
-        {{ range $backendIdx,$backend := $server.Discovery.BackendSpec }}    server {{ $backend.Host }}:{{ $backend.Port }};
+stream {
+{{range $serverKey,$server := .}}
+
+    upstream {{$serverKey}}-{{$server.Bind}}-{{$server.Port}} {
+        {{ range $backendIdx,$backend := $server.Backends }}    server {{ $backend.Host }}:{{ $backend.Port }};
 {{end}}
     }
 
@@ -20,8 +30,7 @@ stream {
         listen {{$server.Bind}}:{{$server.Port}} udp;
         proxy_connect_timeout 1s;
         proxy_timeout 3s;
-        proxy_pass {{$farmValue.FarmName}}-{{$server.Bind}}-{{$server.Port}};
+        proxy_pass {{$serverKey}}-{{$server.Bind}}-{{$server.Port}};
     }
-{{end}}
 {{end}}
 }

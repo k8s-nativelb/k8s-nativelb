@@ -19,15 +19,15 @@ import (
 )
 
 var (
-	ClientPod = &corev1.Pod{}
-	InClusterAgentLabel = map[string]string{nativelb.ClusterLabel:"cluster-sample-cluster"}
-	DaemonClusterAgentLabel = map[string]string{nativelb.ClusterLabel:"cluster-internal"}
-	ExternalClusterAgentLabel = map[string]string{nativelb.ClusterLabel:"cluster-external"}
-	terminate = int64(0)
+	ClientPod                 = &corev1.Pod{}
+	InClusterAgentLabel       = map[string]string{nativelb.ClusterLabel: "cluster-sample-cluster"}
+	DaemonClusterAgentLabel   = map[string]string{nativelb.ClusterLabel: "cluster-internal"}
+	ExternalClusterAgentLabel = map[string]string{nativelb.ClusterLabel: "cluster-external"}
+	terminate                 = int64(0)
 )
 
 const (
-	TestNamespace       = "nativelb-tests-namespace"
+	TestNamespace     = "nativelb-tests-namespace"
 	SampleClusterName = "cluster-sample-cluster"
 )
 
@@ -37,36 +37,35 @@ func PanicOnError(err error) {
 	}
 }
 
-func CreateCluster(testClient *TestClient,clusterName ,ipRange string,isInternal bool) (*nativelb.Cluster, error) {
-	cluster := &nativelb.Cluster{ObjectMeta:metav1.ObjectMeta{Name:clusterName,Namespace:nativelb.ControllerNamespace},
-								 Spec:nativelb.ClusterSpec{Default:false,Internal:isInternal,Subnet:ipRange}}
+func CreateCluster(testClient *TestClient, clusterName, ipRange string, isInternal bool) (*nativelb.Cluster, error) {
+	cluster := &nativelb.Cluster{ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: nativelb.ControllerNamespace},
+		Spec: nativelb.ClusterSpec{Default: false, Internal: isInternal, Subnet: ipRange}}
 
-
-	return testClient.NativelbClient.Cluster().Create(cluster)
+	return testClient.NativelbClient.Cluster(nativelb.ControllerNamespace).Create(cluster)
 }
 
-func DeleteCluster(testClient *TestClient,clusterName string) (error) {
-	return testClient.NativelbClient.Cluster().Delete(clusterName)
+func DeleteCluster(testClient *TestClient, clusterName string) error {
+	return testClient.NativelbClient.Cluster(nativelb.ControllerNamespace).Delete(clusterName)
 }
 
-func CreateNginxDeployment(deploymentName, port string,selectorLabel map[string]string) *appsv1.Deployment {
-	replicas := int32(1)
-	return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: TestNamespace, Labels: selectorLabel},
-		Spec: appsv1.DeploymentSpec{Replicas: &replicas,
-			Selector: &metav1.LabelSelector{MatchLabels: selectorLabel},
-			Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: selectorLabel},
-			Spec: corev1.PodSpec{TerminationGracePeriodSeconds: &terminate,
-								 Containers: []corev1.Container{{Name: "nginx", Image: "registry:5000/k8s-nativelb/nativelb-nginx:latest",Command: []string{"/entrypoint.sh","nginx"},Env: []corev1.EnvVar{{Name:"NGINX_PORT",Value:port}}}}}}}}
-}
-
-func CreateUdpServerDeployment(deploymentName, port string,selectorLabel map[string]string) *appsv1.Deployment {
+func CreateNginxDeployment(deploymentName, port string, selectorLabel map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: TestNamespace, Labels: selectorLabel},
 		Spec: appsv1.DeploymentSpec{Replicas: &replicas,
 			Selector: &metav1.LabelSelector{MatchLabels: selectorLabel},
 			Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: selectorLabel},
 				Spec: corev1.PodSpec{TerminationGracePeriodSeconds: &terminate,
-									 Containers: []corev1.Container{{Name: "nginx", Image: "registry:5000/k8s-nativelb/nativelb-nginx:latest",Command: []string{"/entrypoint.sh","server", port}}}}}}}
+					Containers: []corev1.Container{{Name: "nginx", Image: "registry:5000/k8s-nativelb/nativelb-nginx:latest", Command: []string{"/entrypoint.sh", "nginx"}, Env: []corev1.EnvVar{{Name: "NGINX_PORT", Value: port}}}}}}}}
+}
+
+func CreateUdpServerDeployment(deploymentName, port string, selectorLabel map[string]string) *appsv1.Deployment {
+	replicas := int32(1)
+	return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: TestNamespace, Labels: selectorLabel},
+		Spec: appsv1.DeploymentSpec{Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: selectorLabel},
+			Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: selectorLabel},
+				Spec: corev1.PodSpec{TerminationGracePeriodSeconds: &terminate,
+					Containers: []corev1.Container{{Name: "nginx", Image: "registry:5000/k8s-nativelb/nativelb-nginx:latest", Command: []string{"/entrypoint.sh", "server", port}}}}}}}
 }
 
 func WaitForDeploymentToBeReady(testClient *TestClient, deploymentObject *appsv1.Deployment) {
@@ -137,14 +136,10 @@ func DeleteNginxDeployment(testClient *TestClient, deploymentObject *appsv1.Depl
 	Expect(fmt.Errorf("Fail to remove nginx deployment")).ToNot(HaveOccurred())
 }
 
-func FarmName(serviceName string) string {
-	return fmt.Sprintf("%s-%s", TestNamespace, serviceName)
-}
-
 func StartClient(testClient *TestClient) {
 	var err error
-	ClientPod = &corev1.Pod{ObjectMeta:metav1.ObjectMeta{Name:"test-client"},Spec:corev1.PodSpec{TerminationGracePeriodSeconds: &terminate,
-																								 Containers: []corev1.Container{{Name: "client", Image: "registry:5000/k8s-nativelb/nativelb-client:latest"}}}}
+	ClientPod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-client"}, Spec: corev1.PodSpec{TerminationGracePeriodSeconds: &terminate,
+		Containers: []corev1.Container{{Name: "client", Image: "registry:5000/k8s-nativelb/nativelb-client:latest"}}}}
 	ClientPod, err = testClient.KubeClient.CoreV1().Pods(TestNamespace).Create(ClientPod)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -162,12 +157,12 @@ func StartClient(testClient *TestClient) {
 	}
 }
 
-func CurlFromClient(testClient *TestClient, url string,Issuccess bool) {
+func CurlFromClient(testClient *TestClient, url string, Issuccess bool) {
 	var (
 		stdoutBuf bytes.Buffer
 		stderrBuf bytes.Buffer
 	)
-	command := []string{"curl","-I",url}
+	command := []string{"curl", "-I", url}
 	req := testClient.KubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(ClientPod.Name).
@@ -201,12 +196,12 @@ func CurlFromClient(testClient *TestClient, url string,Issuccess bool) {
 	}
 }
 
-func UdpDialFromClient(testClient *TestClient, url string,isSuccess bool) {
+func UdpDialFromClient(testClient *TestClient, url string, isSuccess bool) {
 	var (
 		stdoutBuf bytes.Buffer
 		stderrBuf bytes.Buffer
 	)
-	command := []string{"/client",url}
+	command := []string{"/client", url}
 	req := testClient.KubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(ClientPod.Name).

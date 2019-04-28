@@ -21,7 +21,6 @@ resources:
 - rbac/rbac_role.yaml
 - rbac/rbac_role_binding.yaml
 - crds/nativelb_v1_agent.yaml
-- crds/nativelb_v1_backend.yaml
 - crds/nativelb_v1_cluster.yaml
 - crds/nativelb_v1_farm.yaml
 - crds/nativelb_v1_server.yaml

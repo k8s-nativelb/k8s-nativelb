@@ -49,12 +49,12 @@ spec:
           type: object
         status:
           properties:
-            ipAdress:
-              type: string
-            nodeList:
+            endpoints:
               items:
                 type: string
               type: array
+            ipAdress:
+              type: string
           type: object
   version: v1
 status:

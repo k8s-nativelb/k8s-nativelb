@@ -42,20 +42,16 @@ func (f *FarmController) CreateOrUpdateFarm(service *corev1.Service) bool {
 		return true
 	}
 
-	farmName := fmt.Sprintf("%s-%s",
-		service.Namespace,
-		service.Name)
-
 	needToCreate := false
 	needToUpdate := true
-	farm, err := f.Farm().Get(farmName)
+	farm, err := f.Farm(service.Namespace).Get(service.Name)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return false
 		}
 
 		// Create a new farm object
-		farm, err = f.createFarmObject(service, farmName, clusterInstance)
+		farm, err = f.createFarmObject(service, clusterInstance)
 		if err != nil {
 			return false
 		}
@@ -92,10 +88,10 @@ func (f *FarmController) needToUpdate(farm *v1.Farm, service *corev1.Service, cl
 		return true, nil
 	}
 
-	nodeList, err := f.getNodeList(service, clusterInstance)
+	endpoints, err := f.getEndpointsList(service, clusterInstance)
 	if err != nil {
 		f.FarmUpdateFailStatus(farm, "Warning", "FarmCreateFail", fmt.Sprintf("failed to get node list service %s in namespace %s error: %v", service.Name, service.Namespace, err))
-		_, err = f.Farm().Update(farm)
+		_, err = f.Farm(service.Namespace).Update(farm)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Fail to update farm error message: %v", err)
 		}
@@ -103,7 +99,7 @@ func (f *FarmController) needToUpdate(farm *v1.Farm, service *corev1.Service, cl
 		return false, err
 	}
 
-	if !reflect.DeepEqual(farm.Status.NodeList, nodeList) {
+	if !reflect.DeepEqual(farm.Status.Endpoints, endpoints) {
 		return true, nil
 	}
 
@@ -131,16 +127,13 @@ func (f *FarmController) createOrUpdateFarm(farm *v1.Farm, service *corev1.Servi
 	if farm.Spec.Cluster != clusterInstance.Name {
 		err := f.clusterController.DeleteFarm(farm, clusterInstance)
 		if err != nil {
-			deletedProviderFarm, err := f.createFarmObject(service,
-				fmt.Sprintf("%s-%s-%s", service.Namespace,
-					clusterInstance.Name,
-					service.Name), clusterInstance)
+			deletedProviderFarm, err := f.createFarmObject(service, clusterInstance)
 			if err != nil {
 				log.Log.Errorf("fail to create a new farm for a delete service object error %v", err)
 			}
 
-			f.FarmUpdateFailDeleteStatus(deletedProviderFarm, "Warning", "FarmDeleteFail", err.Error())
-			deletedProviderFarm, err = f.Farm().Update(deletedProviderFarm)
+			f.FarmUpdateFailDeleteStatus(deletedProviderFarm, "Warning", "FarmDeleteFail", fmt.Sprintf("%v", err))
+			deletedProviderFarm, err = f.Farm(service.Namespace).Update(deletedProviderFarm)
 			if err != nil {
 				log.Log.V(2).Error("Fail to create a new farm for for the deleted farm on cluster")
 			}
@@ -150,17 +143,17 @@ func (f *FarmController) createOrUpdateFarm(farm *v1.Farm, service *corev1.Servi
 	}
 
 	farm.Spec.Ports = service.Spec.Ports
-	nodeList, err := f.getNodeList(service, clusterInstance)
+	endpoints, err := f.getEndpointsList(service, clusterInstance)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create farm %s on cluster %s error: %v", farm.Name, clusterInstance.Name, err)
 		f.FarmUpdateFailStatus(farm, "Warning", "FarmCreateFail", fmt.Sprintf("failed to get node list service %s in namespace %s error: %v", service.Name, service.Namespace, err))
-		_, updateErr := f.Farm().Update(farm)
+		_, updateErr := f.Farm(service.Namespace).Update(farm)
 		if updateErr != nil {
 			log.Log.Reason(err).Errorf("Fail to update farm error message: %v", updateErr)
 		}
 		return err
 	}
-	farm.Status.NodeList = nodeList
+	farm.Status.Endpoints = endpoints
 
 	if needToCreate {
 		err = f.clusterController.CreateFarm(farm, clusterInstance)
@@ -174,7 +167,7 @@ func (f *FarmController) createOrUpdateFarm(farm *v1.Farm, service *corev1.Servi
 		}
 	}
 
-	farm, errCreateFarm := f.Farm().Update(farm)
+	farm, errCreateFarm := f.Farm(service.Namespace).Update(farm)
 	if errCreateFarm != nil {
 		log.Log.Reason(err).Errorf("Fail to update farm error message: %s", errCreateFarm.Error())
 	}
@@ -184,7 +177,7 @@ func (f *FarmController) createOrUpdateFarm(farm *v1.Farm, service *corev1.Servi
 	}
 
 	f.FarmUpdateSuccessStatus(farm, "Normal", "FarmUpdate", fmt.Sprintf("Farm updated on cluster %s", farm.Spec.Cluster))
-	farm, err = f.Farm().Update(farm)
+	farm, err = f.Farm(service.Namespace).Update(farm)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to update farm status error message: %v", errCreateFarm)
 		return err
@@ -196,13 +189,13 @@ func (f *FarmController) createOrUpdateFarm(farm *v1.Farm, service *corev1.Servi
 }
 
 func (f *FarmController) DeleteFarm(serviceNamespace, serviceName string) {
-	farm, err := f.Farm().Get(fmt.Sprintf("%s-%s", serviceNamespace, serviceName))
+	farm, err := f.Farm(serviceNamespace).Get(serviceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to find farm %s-%s for deletion", serviceName, serviceNamespace)
 		return
 	}
 
-	clusterInstance, err := f.Cluster().Get(farm.Spec.Cluster)
+	clusterInstance, err := f.Cluster(v1.ControllerNamespace).Get(farm.Spec.Cluster)
 	if f.IfFailedUpdateFailDeletedStatus(err, farm, fmt.Sprintf("failed to get cluster %s error %v", farm.Spec.Cluster, err)) {
 		return
 	}
@@ -212,7 +205,7 @@ func (f *FarmController) DeleteFarm(serviceNamespace, serviceName string) {
 		return
 	}
 
-	err = f.Farm().Delete(farm.Name)
+	err = f.Farm(serviceNamespace).Delete(farm.Name)
 	if f.IfFailedUpdateFailDeletedStatus(err, farm, fmt.Sprintf("failed to delete farm %s from the k8s database error %v", farm.Name, err)) {
 		return
 	}
@@ -285,12 +278,17 @@ func (f *FarmController) reSyncFailFarms() {
 	for range resyncTick {
 		// Sync farm need to be deleted
 		labelSelector := labels.Set{}
-		labelSelector[v1.FarmStatusLabel] = v1.FarmStatusLabelDeleted
-		farmList, err := f.Farm().List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
+		farmList, err := f.Farm("").List(&client.ListOptions{LabelSelector: labelSelector.AsSelector()})
 		if err != nil {
 			log.Log.Reason(err).Error("failed to get farm list")
 		} else {
 			for _, farmInstance := range farmList.Items {
+				if value, exist := farmInstance.Labels[v1.FarmStatusLabel]; !exist {
+					continue
+				} else if value == v1.FarmStatusLabelSynced || value == v1.FarmStatusLabelSyncing {
+					continue
+				}
+
 				if !f.serviceExist(&farmInstance) {
 					f.DeleteFarm(farmInstance.Spec.ServiceNamespace, farmInstance.Spec.ServiceName)
 				} else {
@@ -299,7 +297,7 @@ func (f *FarmController) reSyncFailFarms() {
 						log.Log.Reason(err).Errorf("failed to get service %s on namespace %s error %v", farmInstance.Spec.ServiceNamespace, farmInstance.Spec.ServiceName, err)
 					}
 
-					clusterInstance, err := f.Cluster().Get(farmInstance.Spec.Cluster)
+					clusterInstance, err := f.Cluster(v1.ControllerNamespace).Get(farmInstance.Spec.Cluster)
 					if err != nil {
 						log.Log.Reason(err).Errorf("failed to find cluster %s for farm %s error %v", farmInstance.Spec.Cluster, farmInstance.Name, err)
 					} else {
@@ -311,19 +309,19 @@ func (f *FarmController) reSyncFailFarms() {
 	}
 }
 
-func (f *FarmController) createFarmObject(service *corev1.Service, farmName string, cluster *v1.Cluster) (*v1.Farm, error) {
-	farmStatus := v1.FarmStatus{NodeList: make([]string, 0)}
+func (f *FarmController) createFarmObject(service *corev1.Service, cluster *v1.Cluster) (*v1.Farm, error) {
+	farmStatus := v1.FarmStatus{Endpoints: make([]string, 0)}
 	farmSpec := v1.FarmSpec{Cluster: cluster.Name,
 		Ports:            service.Spec.Ports,
 		ServiceName:      service.Name,
 		ServiceNamespace: service.Namespace, Servers: make(map[string]*v1.ServerSpec)}
 
 	farmObject := &v1.Farm{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{v1.FarmStatusLabel: v1.FarmStatusLabelSyncing, v1.ClusterLabel: cluster.Name},
-		Namespace: v1.ControllerNamespace, Name: farmName},
+		Namespace: service.Namespace, Name: service.Name},
 		Spec:   farmSpec,
 		Status: farmStatus}
 
-	farmObject, err := f.Farm().Create(farmObject)
+	farmObject, err := f.Farm(service.Namespace).Create(farmObject)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +329,7 @@ func (f *FarmController) createFarmObject(service *corev1.Service, farmName stri
 	return farmObject, nil
 }
 
-func (f *FarmController) getNodeList(service *corev1.Service, cluster *v1.Cluster) ([]string, error) {
+func (f *FarmController) getEndpointsList(service *corev1.Service, cluster *v1.Cluster) ([]string, error) {
 	if cluster.Spec.Internal == true {
 		return f.getEndPoints(service)
 	}
@@ -344,7 +342,7 @@ func (f *FarmController) reSyncCleanRemovedServices() {
 	nativeClient := f.GetClient()
 
 	for range cleanTick.C {
-		farmList, err := f.Farm().List(nil)
+		farmList, err := f.Farm("").List(nil)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to get farm list")
 		} else {

@@ -25,15 +25,17 @@ import (
 	"time"
 )
 
-func (n *nativeLB) Farm() FarmInterface {
-	return &farm{n.Client}
+func (n *nativeLB) Farm(namespace string) FarmInterface {
+	return &farm{n.Client, namespace}
 }
 
 type farm struct {
 	client.Client
+	Namespace string
 }
 
 func (c *farm) Create(farm *v1.Farm) (*v1.Farm, error) {
+	farm.Namespace = c.Namespace
 	err := c.Client.Create(context.Background(), farm)
 	if err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func (c *farm) Get(name string) (*v1.Farm, error) {
 	var err error
 
 	for i := 0; i < getRetry; i++ {
-		err = c.Client.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: v1.ControllerNamespace}, farm)
+		err = c.Client.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: c.Namespace}, farm)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil {
@@ -71,7 +73,7 @@ func (c *farm) Update(farm *v1.Farm) (*v1.Farm, error) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: farm.Name, Namespace: v1.ControllerNamespace}, result)
+		getErr := c.Client.Get(context.Background(), client.ObjectKey{Name: farm.Name, Namespace: c.Namespace}, result)
 		if getErr != nil {
 			return fmt.Errorf("Failed to get latest version of Farm: %v", getErr)
 		}
@@ -95,12 +97,13 @@ func (c *farm) Delete(name string) error {
 	if err != nil {
 		return err
 	}
-
+	farm.Namespace = c.Namespace
 	err = c.Client.Delete(context.Background(), farm)
 	return err
 }
 
 func (c *farm) List(opts *client.ListOptions) (*v1.FarmList, error) {
+	opts.Namespace = c.Namespace
 	farmList := &v1.FarmList{}
 	err := c.Client.List(context.Background(), opts, farmList)
 

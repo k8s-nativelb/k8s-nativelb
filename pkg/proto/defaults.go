@@ -24,8 +24,8 @@ const (
 	AgentSyncedStatus = "synced"
 )
 
-func IsTCPFarm(data *Data) bool {
-	if strings.ToLower(data.Servers[0].Protocol) == "tcp" {
+func IsTCPServer(data *Server) bool {
+	if strings.ToLower(data.Protocol) == "tcp" {
 		return true
 	}
 
